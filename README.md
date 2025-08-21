@@ -1,1 +1,25 @@
 # Ollama_CrewAi
+
+This project demonstrates how to fetch data from the web using Python's `requests` library. It provides a minimal example for educational purposes or as a base for experiments.
+
+## Features
+
+- Simple `fetch_example` function that retrieves a snippet from [example.com](https://example.com).
+- Lightweight structure with a single dependency.
+
+## Usage
+
+Run the main script to display the first 100 characters returned by the site:
+
+```bash
+python src/main.py
+```
+
+## Installation
+
+Install the required dependency listed in [requirements.txt](requirements.txt). For a step-by-step setup guide, including how to use a virtual environment, see [INSTALL.md](INSTALL.md):
+
+```bash
+pip install -r requirements.txt
+```
+
