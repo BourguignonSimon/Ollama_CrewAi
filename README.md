@@ -1,11 +1,12 @@
 # Ollama_CrewAi
 
-This project demonstrates how to fetch data from the web using Python's `requests` library. It provides a minimal example for educational purposes or as a base for experiments.
+This project demonstrates how to fetch data from the web using Python's `requests` library. It also includes an asynchronous example built with `aiohttp`. It provides a minimal example for educational purposes or as a base for experiments.
 
 ## Features
 
 - Simple `fetch_example` function that retrieves a snippet from a specified URL (defaults to [example.com](https://example.com)) with configurable character limit, timeout, and retry behavior.
-- Lightweight structure with a single dependency.
+- Optional asynchronous `fetch_example_async` using `aiohttp`.
+- Lightweight structure with minimal dependencies.
 
 ## Usage
 
@@ -17,6 +18,14 @@ python src/main.py
 
 You can customize the URL, length of the returned snippet, request timeout, and number of retries by passing arguments to `fetch_example` in `src/main.py`.
 
+To try the asynchronous version, run:
+
+```bash
+python src/main.py --async
+```
+
+The async entry point `main_async()` can also be invoked from other scripts.
+
 ## Installation
 
 Install the project and its dependencies with:
@@ -27,7 +36,7 @@ pip install .
 
 This will provide the CLI command `ollama-crewai`.
 
-Alternatively, install the required dependency listed in [requirements.txt](requirements.txt):
+Alternatively, install the required dependencies listed in [requirements.txt](requirements.txt):
 
 ```bash
 pip install -r requirements.txt
@@ -42,7 +51,7 @@ For a step-by-step setup guide, including how to use a virtual environment, see 
 Install the test dependencies and run the suite with:
 
 ```bash
-pip install -r requirements.txt pytest requests-mock
+pip install -r requirements.txt pytest requests-mock pytest-asyncio
 pytest
 ```
 
@@ -69,10 +78,15 @@ After installation the executable `ollama-crewai` is available. You can also run
 python src/main.py
 ```
 
+To use the asynchronous implementation from the command line:
+
+```bash
+python src/main.py --async
+```
+
 ## Possible extensions
 
 - Accept command-line arguments for URL and character limit.
-- Integrate asynchronous fetching or caching mechanisms.
 
 ## Contributing
 
