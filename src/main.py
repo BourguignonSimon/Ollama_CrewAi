@@ -7,11 +7,11 @@ def fetch_example(url: str = "https://example.com", limit: int = 100) -> str:
     """Fetch a snippet from the specified URL.
 
     Args:
-        url: Web address to retrieve.
-        limit: Maximum number of characters to return from the response body.
+        url (str): Web address to retrieve.
+        limit (int): Maximum number of characters to return from the response body.
 
     Returns:
-        A substring of the response body or an error message.
+        str: A substring of the response body or an error message.
 
     Raises:
         ValueError: If ``limit`` is not a positive integer.
