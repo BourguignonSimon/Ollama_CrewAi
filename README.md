@@ -42,9 +42,11 @@ For a step-by-step setup guide, including how to use a virtual environment, see 
 Install the test dependencies and run the suite with:
 
 ```bash
-pip install -r requirements.txt pytest requests-mock
+pip install -r requirements.txt pytest requests-mock pytest-asyncio
 pytest
 ```
+
+The test suite uses the `pytest-asyncio` plugin so asynchronous tests can be executed.
 
 ### Environment variables
 
