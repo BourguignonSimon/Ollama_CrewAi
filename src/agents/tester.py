@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import subprocess
-from typing import List
 
 from .base import Agent
 from .message import Message
