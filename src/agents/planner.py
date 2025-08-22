@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import List
+import asyncio
+
+from core.bus import MessageBus
 
 from .base import Agent
 from .message import Message
@@ -15,6 +18,12 @@ class PlannerAgent(Agent):
     capabilities: list[str] = field(default_factory=lambda: ["planning", "decomposition"])
     tools: list[str] = field(default_factory=list)
     tasks: List[str] = field(default_factory=list)
+    bus: MessageBus | None = None
+    queue: asyncio.Queue[Message] | None = field(init=False, default=None)
+
+    def __post_init__(self) -> None:
+        if self.bus:
+            self.queue = self.bus.register("planner")
 
     def plan(self) -> Message:  # type: ignore[override]
         """Return a simple readiness message."""

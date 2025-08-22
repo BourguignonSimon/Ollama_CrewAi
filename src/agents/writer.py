@@ -4,6 +4,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List
+import asyncio
+
+from core.bus import MessageBus
 
 from .base import Agent
 from .message import Message
@@ -16,6 +19,12 @@ class WriterAgent(Agent):
     capabilities: list[str] = field(default_factory=lambda: ["documentation"])
     tools: list[str] = field(default_factory=lambda: ["filesystem"])
     documents: List[Path] = field(default_factory=list)
+    bus: MessageBus | None = None
+    queue: asyncio.Queue[Message] | None = field(init=False, default=None)
+
+    def __post_init__(self) -> None:
+        if self.bus:
+            self.queue = self.bus.register("writer")
 
     def plan(self) -> Message:  # type: ignore[override]
         return Message(sender="writer", content="ready")
