@@ -17,36 +17,48 @@ python src/main.py
 
 You can customize the URL, length of the returned snippet, request timeout, and number of retries by passing arguments to `fetch_example` in `src/main.py`.
 
-## Installation
+## Installation and Testing
 
-Install the project and its dependencies with:
+Follow these steps to set up the project and run the test suite:
 
-```bash
-pip install .
-```
+1. **Clone the repository**
 
-This will provide the CLI command `ollama-crewai`.
+   ```bash
+   git clone <repository-url>
+   cd Ollama_CrewAi
+   ```
 
-Alternatively, install the required dependency listed in [requirements.txt](requirements.txt):
+2. **(Optional) Create a virtual environment**
 
-```bash
-pip install -r requirements.txt
-```
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   ```
 
-For a step-by-step setup guide, including how to use a virtual environment, see [INSTALL.md](INSTALL.md).
+3. **Install the package**
+
+   To install the CLI and its dependencies:
+
+   ```bash
+   pip install .
+   ```
+
+   Alternatively, install the dependencies directly:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Install test dependencies and run the tests**
+
+   ```bash
+   pip install -r requirements.txt pytest requests-mock pytest-asyncio
+   pytest
+   ```
+
+For a more detailed setup guide, including the use of virtual environments, see [INSTALL.md](INSTALL.md).
 
 ## Development
-
-### Tests
-
-Install the test dependencies and run the suite with:
-
-```bash
-pip install -r requirements.txt pytest requests-mock pytest-asyncio
-pytest
-```
-
-The test suite uses the `pytest-asyncio` plugin so asynchronous tests can be executed.
 
 ### Environment variables
 
