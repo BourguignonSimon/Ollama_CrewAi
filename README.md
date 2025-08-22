@@ -25,3 +25,12 @@ Install the required dependency listed in [requirements.txt](requirements.txt). 
 pip install -r requirements.txt
 ```
 
+
+## Tests
+
+Install the test dependencies and run the suite with:
+
+```bash
+pip install -r requirements.txt pytest requests-mock
+pytest
+```
