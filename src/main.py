@@ -1,14 +1,20 @@
 import logging
+import os
+from typing import Optional
+
 import requests
 import requests.exceptions
 
 
-def fetch_example(url: str = "https://example.com", limit: int = 100) -> str:
+def fetch_example(url: Optional[str] = None, limit: Optional[int] = None) -> str:
     """Fetch a snippet from the specified URL.
 
     Args:
-        url (str): Web address to retrieve.
-        limit (int): Maximum number of characters to return from the response body.
+        url (str, optional): Web address to retrieve. Defaults to the
+            ``FETCH_URL`` environment variable or ``"https://example.com"``.
+        limit (int, optional): Maximum number of characters to return from the
+            response body. Defaults to the ``FETCH_LIMIT`` environment variable
+            or ``100``.
 
     Returns:
         str: A substring of the response body or an error message.
@@ -16,6 +22,11 @@ def fetch_example(url: str = "https://example.com", limit: int = 100) -> str:
     Raises:
         ValueError: If ``limit`` is not a positive integer.
     """
+    if url is None:
+        url = os.getenv("FETCH_URL", "https://example.com")
+    if limit is None:
+        limit_str = os.getenv("FETCH_LIMIT")
+        limit = int(limit_str) if limit_str is not None else 100
     if limit <= 0:
         raise ValueError("limit must be positive")
 
@@ -34,7 +45,7 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     """Run example fetch and log the result."""
-    logger.info(fetch_example(url="https://example.com", limit=100))
+    logger.info(fetch_example())
 
 
 if __name__ == "__main__":
