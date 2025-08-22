@@ -1,0 +1,36 @@
+"""Tester agent for executing test suites."""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+import subprocess
+
+from .base import Agent
+from .message import Message
+
+
+@dataclass
+class TesterAgent(Agent):
+    """Agent that runs pytest and returns the results."""
+
+    capabilities: list[str] = field(default_factory=lambda: ["testing"])
+    tools: list[str] = field(default_factory=lambda: ["pytest"])
+    last_result: str | None = None
+
+    def plan(self) -> Message:  # type: ignore[override]
+        return Message(sender="tester", content="ready")
+
+    def act(self, message: Message) -> Message:  # type: ignore[override]
+        command = message.content or "pytest"
+        try:
+            result = subprocess.run(
+                command.split(), capture_output=True, text=True, check=True
+            )
+            self.last_result = result.stdout
+            return Message(sender="tester", content="success", metadata={"output": result.stdout})
+        except subprocess.CalledProcessError as exc:  # pragma: no cover - failure path
+            self.last_result = exc.stderr
+            return Message(sender="tester", content="failure", metadata={"error": exc.stderr})
+
+    def observe(self, message: Message) -> None:  # type: ignore[override]
+        if message.metadata:
+            self.last_result = message.metadata.get("output") or message.metadata.get("error")
