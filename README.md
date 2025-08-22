@@ -19,12 +19,21 @@ You can customize the URL and the length of the returned snippet by passing argu
 
 ## Installation
 
-Install the required dependency listed in [requirements.txt](requirements.txt). For a step-by-step setup guide, including how to use a virtual environment, see [INSTALL.md](INSTALL.md):
+Install the project and its dependencies with:
+
+```bash
+pip install .
+```
+
+This will provide the CLI command `ollama-crewai`.
+
+Alternatively, install the required dependency listed in [requirements.txt](requirements.txt):
 
 ```bash
 pip install -r requirements.txt
 ```
 
+For a step-by-step setup guide, including how to use a virtual environment, see [INSTALL.md](INSTALL.md).
 
 ## Tests
 
