@@ -1,10 +1,13 @@
 """Manager agent orchestrating multiple specialized agents."""
-
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from contextlib import suppress
+from dataclasses import dataclass, field
+from typing import Dict, List
+
+from core.bus import MessageBus
+from core.task import Task, TaskStatus
 
 from .base import Agent
 from .message import Message
@@ -12,62 +15,84 @@ from .message import Message
 
 @dataclass
 class Manager(Agent):
-    """Agent responsible for coordinating other agents.
-
-    Parameters
-    ----------
-    agents:
-        Mapping of agent names to agent instances that will receive tasks.
-    """
+    """Agent responsible for coordinating other agents."""
 
     agents: Dict[str, Agent]
+    bus: MessageBus | None = None
+    queue: asyncio.Queue[Message] | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
-        self._queue: asyncio.Queue[Tuple[str, Message]] = asyncio.Queue()
+        if self.bus is None:
+            self.bus = MessageBus()
+        # Register manager queue
+        self.queue = self.bus.register("manager")
         self._results: List[Message] = []
         self._objective: str | None = None
+        self._tasks: List[Task] = []
+        # Ensure agents share the bus
+        for name, agent in self.agents.items():
+            if agent.bus is None:
+                agent.bus = self.bus
+            if agent.queue is None:
+                agent.queue = self.bus.register(name)
 
     # -- Agent API -----------------------------------------------------
     def plan(self) -> Message:  # type: ignore[override]
-        """Split the global objective into discrete tasks."""
+        """Split the global objective into discrete :class:`Task` objects."""
         if not self._objective:
             raise ValueError("No objective set")
+        descriptions = [t.strip() for t in self._objective.split(".") if t.strip()]
+        self._tasks = [Task(id=i, description=d) for i, d in enumerate(descriptions, 1)]
+        return Message(sender="manager", content="plan", metadata={"tasks": self._tasks})
 
-        tasks = [t.strip() for t in self._objective.split(".") if t.strip()]
-        return Message(sender="manager", content="plan", metadata={"tasks": tasks})
-
-    def act(self, message: Message) -> Message:  # type: ignore[override]
-        """Distribute tasks round-robin to specialized agents."""
-        tasks: List[str] = message.metadata.get("tasks", []) if message.metadata else []
+    async def act(self, message: Message) -> Message:  # type: ignore[override]
+        """Distribute tasks round-robin to specialized agents via the bus."""
+        tasks: List[Task] = message.metadata.get("tasks", []) if message.metadata else []
         agent_names = list(self.agents.keys())
         for idx, task in enumerate(tasks):
             target = agent_names[idx % len(agent_names)]
-            self._queue.put_nowait((target, Message(sender="manager", content=task)))
+            task.status = TaskStatus.IN_PROGRESS
+            await self.bus.send(
+                target,
+                Message(
+                    sender="manager",
+                    content=task.description,
+                    metadata={"task_id": task.id},
+                ),
+            )
         return Message(sender="manager", content="dispatched", metadata={"tasks": tasks})
 
     def observe(self, message: Message) -> None:  # type: ignore[override]
-        """Collect results produced by specialized agents."""
+        """Collect results produced by specialized agents and update tasks."""
         self._results.append(message)
+        task_id = message.metadata.get("task_id") if message.metadata else None
+        if task_id is not None:
+            for task in self._tasks:
+                if task.id == task_id:
+                    task.status = TaskStatus.DONE
+                    task.result = message.content
+                    break
 
     # -- Orchestration -------------------------------------------------
-    async def run(self, objective: str) -> List[Message]:
-        """Run the orchestration process for ``objective``.
-
-        The objective is split into tasks, dispatched to agents and results
-        collected. Returns the list of responses from agents.
-        """
+    async def run(self, objective: str) -> List[Task]:
+        """Run the orchestration process for ``objective`` and return tasks."""
 
         self._objective = objective
         plan_msg = self.plan()
-        self.act(plan_msg)
-        await self._process_queue()
-        return self._results
 
-    async def _process_queue(self) -> None:
-        while not self._queue.empty():
-            target, message = await self._queue.get()
-            agent = self.agents[target]
-            response = agent.act(message)
-            agent.observe(response)
-            self.observe(response)
-            self._queue.task_done()
+        # Start worker loops
+        workers = [asyncio.create_task(agent.handle()) for agent in self.agents.values()]
+
+        await self.act(plan_msg)
+
+        for _ in self._tasks:
+            msg = await self.queue.get()  # type: ignore[arg-type]
+            self.observe(msg)
+            self.queue.task_done()  # type: ignore[call-arg]
+
+        for w in workers:
+            w.cancel()
+            with suppress(asyncio.CancelledError):
+                await w
+
+        return self._tasks

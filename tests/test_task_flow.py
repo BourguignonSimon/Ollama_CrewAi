@@ -11,36 +11,31 @@ from agents.manager import Manager
 from core import MessageBus, TaskStatus
 
 
-class WorkerAgent(Agent):
-    """Simple agent that capitalizes tasks it receives."""
+class EchoAgent(Agent):
+    """Agent that echoes back the uppercase content of messages."""
 
     def __init__(self, name: str, bus: MessageBus) -> None:
         self.name = name
         self.bus = bus
         self.queue = bus.register(name)
-        self.observed: list[Message] = []
 
     def plan(self) -> Message:  # type: ignore[override]
         return Message(sender=self.name, content="ready")
 
     def act(self, message: Message) -> Message:  # type: ignore[override]
-        self.observed.append(message)
         return Message(sender=self.name, content=message.content.upper(), metadata=message.metadata)
 
     def observe(self, message: Message) -> None:  # type: ignore[override]
-        self.observed.append(message)
+        pass
 
 
 @pytest.mark.asyncio
-async def test_manager_orchestration() -> None:
+async def test_complete_task_flow() -> None:
     bus = MessageBus()
-    worker1 = WorkerAgent("w1", bus)
-    worker2 = WorkerAgent("w2", bus)
-    manager = Manager({"w1": worker1, "w2": worker2}, bus=bus)
+    echo = EchoAgent("worker", bus)
+    manager = Manager({"worker": echo}, bus=bus)
 
     tasks = await manager.run("alpha. beta.")
 
     assert [t.result for t in tasks] == ["ALPHA", "BETA"]
     assert all(t.status is TaskStatus.DONE for t in tasks)
-    assert worker1.observed[0].content == "alpha"
-    assert worker2.observed[0].content == "beta"

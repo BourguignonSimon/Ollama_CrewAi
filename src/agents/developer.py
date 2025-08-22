@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+import asyncio
+
+from core.bus import MessageBus
 
 from .base import Agent
 from .message import Message
@@ -15,6 +18,12 @@ class DeveloperAgent(Agent):
     capabilities: list[str] = field(default_factory=lambda: ["coding", "file-writing"])
     tools: list[str] = field(default_factory=lambda: ["filesystem"])
     last_written: Path | None = None
+    bus: MessageBus | None = None
+    queue: asyncio.Queue[Message] | None = field(init=False, default=None)
+
+    def __post_init__(self) -> None:
+        if self.bus:
+            self.queue = self.bus.register("developer")
 
     def plan(self) -> Message:  # type: ignore[override]
         return Message(sender="developer", content="ready")

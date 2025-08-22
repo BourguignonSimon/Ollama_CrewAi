@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import subprocess
+import asyncio
+
+from core.bus import MessageBus
 
 from .base import Agent
 from .message import Message
@@ -15,6 +18,12 @@ class TesterAgent(Agent):
     capabilities: list[str] = field(default_factory=lambda: ["testing"])
     tools: list[str] = field(default_factory=lambda: ["pytest"])
     last_result: str | None = None
+    bus: MessageBus | None = None
+    queue: asyncio.Queue[Message] | None = field(init=False, default=None)
+
+    def __post_init__(self) -> None:
+        if self.bus:
+            self.queue = self.bus.register("tester")
 
     def plan(self) -> Message:  # type: ignore[override]
         return Message(sender="tester", content="ready")
