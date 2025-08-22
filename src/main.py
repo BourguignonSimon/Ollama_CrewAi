@@ -4,9 +4,16 @@ from typing import Optional
 
 import requests
 import requests.exceptions
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
 
-def fetch_example(url: Optional[str] = None, limit: Optional[int] = None) -> str:
+def fetch_example(
+    url: Optional[str] = None,
+    limit: Optional[int] = None,
+    timeout: Optional[int] = None,
+    retries: Optional[int] = None,
+) -> str:
     """Fetch a snippet from the specified URL.
 
     Args:
@@ -15,6 +22,11 @@ def fetch_example(url: Optional[str] = None, limit: Optional[int] = None) -> str
         limit (int, optional): Maximum number of characters to return from the
             response body. Defaults to the ``FETCH_LIMIT`` environment variable
             or ``100``.
+        timeout (int, optional): Number of seconds to wait for a response.
+            Defaults to the ``FETCH_TIMEOUT`` environment variable or ``10``.
+        retries (int, optional): Number of retry attempts for failed
+            requests. Defaults to the ``FETCH_RETRIES`` environment variable or
+            ``0``.
 
     Returns:
         str: A substring of the response body or an error message.
@@ -27,11 +39,29 @@ def fetch_example(url: Optional[str] = None, limit: Optional[int] = None) -> str
     if limit is None:
         limit_str = os.getenv("FETCH_LIMIT")
         limit = int(limit_str) if limit_str is not None else 100
+    if timeout is None:
+        timeout_str = os.getenv("FETCH_TIMEOUT")
+        timeout = int(timeout_str) if timeout_str is not None else 10
+    if retries is None:
+        retries_str = os.getenv("FETCH_RETRIES")
+        retries = int(retries_str) if retries_str is not None else 0
     if limit <= 0:
         raise ValueError("limit must be positive")
 
     try:
-        response = requests.get(url, timeout=10)
+        with requests.Session() as session:
+            if retries > 0:
+                retry_strategy = Retry(
+                    total=retries,
+                    status_forcelist=[429, 500, 502, 503, 504],
+                    allowed_methods=["HEAD", "GET", "OPTIONS"],
+                )
+                adapter = HTTPAdapter(max_retries=retry_strategy)
+            else:
+                adapter = HTTPAdapter()
+            session.mount("http://", adapter)
+            session.mount("https://", adapter)
+            response = session.get(url, timeout=timeout)
     except requests.exceptions.RequestException as exc:
         return f"Error fetching data: {exc}"
     if response.ok:

@@ -4,7 +4,7 @@ This project demonstrates how to fetch data from the web using Python's `request
 
 ## Features
 
-- Simple `fetch_example` function that retrieves a snippet from a specified URL (defaults to [example.com](https://example.com)) with a configurable character limit.
+- Simple `fetch_example` function that retrieves a snippet from a specified URL (defaults to [example.com](https://example.com)) with configurable character limit, timeout, and retry behavior.
 - Lightweight structure with a single dependency.
 
 ## Usage
@@ -15,7 +15,7 @@ Run the main script to display the first 100 characters returned by the site:
 python src/main.py
 ```
 
-You can customize the URL and the length of the returned snippet by passing arguments to `fetch_example` in `src/main.py`.
+You can customize the URL, length of the returned snippet, request timeout, and number of retries by passing arguments to `fetch_example` in `src/main.py`.
 
 ## Installation
 
@@ -48,10 +48,12 @@ pytest
 
 ### Environment variables
 
-The script honors two optional environment variables:
+The script honors several optional environment variables:
 
 - `FETCH_URL`: URL to fetch (defaults to `https://example.com`).
 - `FETCH_LIMIT`: Number of characters to display (defaults to `100`).
+- `FETCH_TIMEOUT`: Timeout in seconds for the request (defaults to `10`).
+- `FETCH_RETRIES`: Number of retry attempts for failed requests (defaults to `0`).
 
 You can set them inline when invoking the CLI:
 
@@ -70,7 +72,6 @@ python src/main.py
 ## Possible extensions
 
 - Accept command-line arguments for URL and character limit.
-- Add retries or adjustable timeouts.
 - Integrate asynchronous fetching or caching mechanisms.
 
 ## Contributing
