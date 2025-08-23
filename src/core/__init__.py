@@ -2,5 +2,6 @@
 
 from .task import Task, TaskStatus
 from .bus import MessageBus
+from .storage import Storage
 
-__all__ = ["Task", "TaskStatus", "MessageBus"]
+__all__ = ["Task", "TaskStatus", "MessageBus", "Storage"]
