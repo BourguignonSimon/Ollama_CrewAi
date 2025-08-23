@@ -83,6 +83,22 @@ After installation the executable `ollama-crewai` is available. You can also run
 python src/main.py
 ```
 
+### Agent orchestration CLI
+
+The package also exposes a small orchestrator for the demo agents. Run
+it with:
+
+```bash
+ollama-crewai-agents [-c config/agents.yaml] [--debug]
+```
+
+* `-c`, `--config` – path to the YAML or JSON configuration file
+  describing the agents and default objective (defaults to
+  `config/agents.yaml`).
+* `--debug` – enable verbose logging to aid debugging.
+
+The repository ships with a sample configuration file in `config/agents.yaml`.
+
 ## Possible extensions
 
 - Accept command-line arguments for URL and character limit.
