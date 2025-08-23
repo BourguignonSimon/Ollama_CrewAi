@@ -44,12 +44,25 @@ class Manager(Agent):
 
     # -- Agent API -----------------------------------------------------
     def plan(self) -> Message:
-        """Split the global objective into discrete :class:`Task` objects."""
+        """Split the objective into tasks and return the plan for approval."""
         if not self._objective:
             raise ValueError("No objective set")
         descriptions = [t.strip() for t in self._objective.split(".") if t.strip()]
         self._tasks = [Task(id=i, description=d) for i, d in enumerate(descriptions, 1)]
+        # Do not dispatch here; the plan must be approved first.
         return Message(sender="manager", content="plan", metadata={"tasks": self._tasks})
+
+    async def request_approval(self, plan: Message) -> bool:
+        """Send ``plan`` to the supervisor and await approval."""
+        self.bus.send_to_supervisor(plan)
+        while True:
+            response = await self.bus.recv_from_supervisor()
+            if response.sender == "manager" and response.content == "plan":
+                # Put the plan back for the supervisor to read
+                self.bus.send_to_supervisor(response)
+                await asyncio.sleep(0)
+                continue
+            return response.content.lower() in {"approve", "approved", "yes"}
 
     def act(self, message: Message) -> Message:
         """Distribute tasks round-robin to specialized agents via the bus."""
@@ -103,6 +116,9 @@ class Manager(Agent):
 
         self._objective = objective
         plan_msg = self.plan()
+        approved = await self.request_approval(plan_msg)
+        if not approved:
+            return self._tasks
 
         async def _safe_handle(agent: Agent) -> None:
             try:
