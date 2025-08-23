@@ -11,7 +11,6 @@ from core.task import Task, TaskStatus
 
 from .base import Agent
 from .message import Message
-from supervisor.interface import display_progress, read_user_command
 
 
 @dataclass
@@ -25,6 +24,8 @@ class Manager(Agent):
     def __post_init__(self) -> None:
         # Register manager queue
         self.queue = self.bus.register("manager")
+        # Ensure supervisor channel exists for UI interaction
+        self.bus.register("supervisor")
         self._results: List[Message] = []
         self._objective: str | None = None
         self._tasks: List[Task] = []
@@ -77,7 +78,14 @@ class Manager(Agent):
                     task.status = TaskStatus.DONE
                     task.result = message.content
                     break
-        display_progress(self._tasks)
+        # Forward progress update to supervisor interface
+        self.bus.send_to_supervisor(
+            Message(
+                sender="manager",
+                content="progress",
+                metadata={"tasks": list(self._tasks)},
+            )
+        )
 
     # -- Orchestration -------------------------------------------------
     async def run(self, objective: str, timeout: float | None = None) -> List[Task]:
@@ -109,22 +117,9 @@ class Manager(Agent):
         self.act(plan_msg)
 
         remaining = len(self._tasks)
-        polling = True
 
         try:
             while remaining:
-                if polling:
-                    try:
-                        command = await asyncio.wait_for(
-                            asyncio.to_thread(read_user_command), timeout=0.1
-                        )
-                    except asyncio.TimeoutError:
-                        command = None
-                    if command is None:
-                        polling = False
-                    elif command:
-                        self.bus.dispatch("manager", Message(sender="user", content=command))
-
                 try:
                     msg = await asyncio.wait_for(self.queue.get(), timeout=timeout)
                 except asyncio.TimeoutError:
