@@ -13,7 +13,7 @@ import asyncio
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
 import yaml
 
@@ -45,9 +45,9 @@ def load_config(path: Path) -> Dict[str, Any]:
 
     text = path.read_text(encoding="utf-8")
     if path.suffix in {".yaml", ".yml"}:
-        return yaml.safe_load(text)
+        return cast(Dict[str, Any], yaml.safe_load(text))
     if path.suffix == ".json":
-        return json.loads(text)
+        return cast(Dict[str, Any], json.loads(text))
     raise ValueError(f"Unsupported config format: {path.suffix}")
 
 

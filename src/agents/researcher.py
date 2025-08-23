@@ -25,10 +25,10 @@ class ResearcherAgent(Agent):
         if self.bus:
             self.queue = self.bus.register("researcher")
 
-    def plan(self) -> Message:  # type: ignore[override]
+    def plan(self) -> Message:
         return Message(sender="researcher", content="ready")
 
-    def act(self, message: Message) -> Message:  # type: ignore[override]
+    def act(self, message: Message) -> Message:
         url = message.content
         try:
             response = requests.get(url, timeout=5)
@@ -41,5 +41,5 @@ class ResearcherAgent(Agent):
             self.last_response = error
             return Message(sender="researcher", content=error)
 
-    def observe(self, message: Message) -> None:  # type: ignore[override]
+    def observe(self, message: Message) -> None:
         self.last_response = message.content

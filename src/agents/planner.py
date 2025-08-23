@@ -25,16 +25,16 @@ class PlannerAgent(Agent):
         if self.bus:
             self.queue = self.bus.register("planner")
 
-    def plan(self) -> Message:  # type: ignore[override]
+    def plan(self) -> Message:
         """Return a simple readiness message."""
         return Message(sender="planner", content="ready")
 
-    def act(self, message: Message) -> Message:  # type: ignore[override]
+    def act(self, message: Message) -> Message:
         """Split the incoming objective into discrete tasks."""
         self.tasks = [t.strip() for t in message.content.split(".") if t.strip()]
         return Message(sender="planner", content="plan", metadata={"tasks": self.tasks})
 
-    def observe(self, message: Message) -> None:  # type: ignore[override]
+    def observe(self, message: Message) -> None:
         """Store observed tasks for later reference."""
         if message.metadata:
             self.tasks = message.metadata.get("tasks", [])
