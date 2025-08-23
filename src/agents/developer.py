@@ -16,8 +16,10 @@ from .message import Message
 @dataclass
 class DeveloperAgent(Agent):
     """Agent that writes provided code snippets to the filesystem."""
-
-    capabilities: list[str] = field(default_factory=lambda: ["coding", "file-writing"])
+    model: str = "gpt-4"
+    capabilities: list[str] = field(
+        default_factory=lambda: ["coding", "file-writing", "file-reading"]
+    )
     tools: list[str] = field(default_factory=lambda: ["filesystem"])
     last_written: Path | None = None
     bus: MessageBus | None = None
@@ -36,12 +38,20 @@ class DeveloperAgent(Agent):
         metadata = message.metadata or {}
         path_value = metadata.get("path")
         code = metadata.get("code", "")
+        read_path = metadata.get("read")
         if path_value:
             path = Path(path_value)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(code)
             self.last_written = path
             return Message(sender="developer", content=f"wrote {path}")
+        if read_path:
+            path = Path(read_path)
+            try:
+                content = path.read_text()
+            except FileNotFoundError:
+                content = "file not found"
+            return Message(sender="developer", content=content)
         return Message(sender="developer", content="no action")
 
     def observe(self, message: Message) -> None:

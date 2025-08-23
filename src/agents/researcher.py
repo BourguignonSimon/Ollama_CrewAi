@@ -16,7 +16,7 @@ from .message import Message
 @dataclass
 class ResearcherAgent(Agent):
     """Agent that fetches information from the web using ``aiohttp``."""
-
+    model: str = "gpt-4"
     capabilities: list[str] = field(default_factory=lambda: ["research", "web-fetch"])
     tools: list[str] = field(default_factory=lambda: ["aiohttp"])
     last_response: str | None = None

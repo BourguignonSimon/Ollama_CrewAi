@@ -16,7 +16,7 @@ from .message import Message
 @dataclass
 class TesterAgent(Agent):
     """Agent that runs pytest and returns the results."""
-
+    model: str = "gpt-4"
     capabilities: list[str] = field(default_factory=lambda: ["testing"])
     tools: list[str] = field(default_factory=lambda: ["pytest"])
     last_result: str | None = None

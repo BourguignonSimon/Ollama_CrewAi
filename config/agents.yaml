@@ -1,6 +1,17 @@
 objective: "Plan. Implement. Test."
 agents:
-  planner: {}
-  developer: {}
-  writer: {}
-  tester: {}
+  planner:
+    model: gpt-4
+    tools: []
+  developer:
+    model: gpt-4
+    tools: [filesystem]
+  writer:
+    model: gpt-4
+    tools: [filesystem]
+  tester:
+    model: gpt-4
+    tools: [pytest]
+  researcher:
+    model: gpt-4
+    tools: [aiohttp]
