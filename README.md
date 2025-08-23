@@ -104,6 +104,28 @@ ollama-crewai-agents [-c config/agents.yaml] [--debug]
 
 The repository ships with a sample configuration file in `config/agents.yaml`.
 
+#### Superviseur ↔ Manager ↔ Agents
+
+```text
+Superviseur <-> Manager <-> Agents
+```
+
+Launch the orchestration from the command line:
+
+```bash
+ollama-crewai-agents -c config/agents.yaml
+```
+
+Example session:
+
+```text
+$ ollama-crewai-agents -c config/agents.yaml
+manager  | objective loaded
+planner  | plan feature
+developer| implement feature
+tester   | test feature
+```
+
 ### Agent configuration and workflow
 
 Agents are declared in a YAML or JSON file.  The manager loads this
@@ -137,6 +159,7 @@ overall workflow.
 
 - Accept command-line arguments for URL and character limit.
 - Integrate asynchronous fetching or caching mechanisms.
+- [Create custom agents](docs/extension.md).
 
 ## Contributing
 

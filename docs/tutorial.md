@@ -39,6 +39,13 @@ AGENTS_CONFIG=config/agents.yaml AGENTS_DEBUG=1 ollama-crewai-agents
 3. Tasks are dispatched round-robin to the agents.
 4. Agents process tasks and report results back to the manager.
 
+## Supervision humaine
+
+Pendant l'exécution, un superviseur humain peut valider ou ajuster les
+plans proposés par le manager. Les messages saisis par le superviseur sont
+transmis au manager, qui les relaie ensuite aux agents pour guider la
+progression du projet.
+
 ## Logging
 
 The framework uses a structured logger configured via `core.logging`. Each
@@ -66,3 +73,6 @@ tasks, agents, decisions, messages = storage.load()
 
 This allows interrupted projects to continue without losing context from the
 earlier conversation.
+
+For instructions on creating vos propres agents personnalisés, consultez
+[le guide d'extension](extension.md).
