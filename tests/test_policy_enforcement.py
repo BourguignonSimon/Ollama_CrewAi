@@ -47,6 +47,9 @@ async def test_refusal_on_policy_violation(monkeypatch) -> None:
     assert plan.content == "plan"
     bus.send_to_supervisor(Message(sender="supervisor", content="approve"))
 
+    # Yield to allow manager to consume the approval and respond
+    await asyncio.sleep(0)
+
     # Manager should refuse the task before any worker processes it
     refusal = await asyncio.wait_for(bus.recv_from_supervisor(), timeout=1)
     assert refusal.content == "refused"
