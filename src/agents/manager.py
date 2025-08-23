@@ -129,8 +129,7 @@ class Manager(Agent):
                             task.status = TaskStatus.FAILED
                     break
                 else:
-                    if msg.metadata and msg.metadata.get("task_id") is not None:
-                        self.observe(msg)
+                    self.observe(msg)
                     self.queue.task_done()
         finally:
             for w in workers:
