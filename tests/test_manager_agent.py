@@ -44,3 +44,35 @@ async def test_manager_orchestration() -> None:
     assert all(t.status is TaskStatus.DONE for t in tasks)
     assert worker1.observed[0].content == "alpha"
     assert worker2.observed[0].content == "beta"
+
+
+class LazyWorker(Agent):
+    """Agent without preconfigured bus used for dynamic registration."""
+
+    observed: list[Message]
+
+    def __init__(self) -> None:
+        self.observed = []
+
+    def plan(self) -> Message:  # type: ignore[override]
+        return Message(sender="lazy", content="ready")
+
+    def act(self, message: Message) -> Message:  # type: ignore[override]
+        self.observed.append(message)
+        return Message(sender="lazy", content=message.content.upper(), metadata=message.metadata)
+
+    def observe(self, message: Message) -> None:  # type: ignore[override]
+        self.observed.append(message)
+
+
+@pytest.mark.asyncio
+async def test_dynamic_registration() -> None:
+    bus = MessageBus()
+    manager = Manager({}, bus=bus)
+    worker = LazyWorker()
+    manager.register_agent("w", worker)
+
+    tasks = await manager.run("gamma.")
+
+    assert [t.result for t in tasks] == ["GAMMA"]
+    assert worker.observed[0].content == "gamma"

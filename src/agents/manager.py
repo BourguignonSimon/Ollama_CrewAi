@@ -17,7 +17,7 @@ from .message import Message
 class Manager(Agent):
     """Agent responsible for coordinating other agents."""
 
-    agents: Dict[str, Agent]
+    agents: Dict[str, Agent] = field(default_factory=dict)
     bus: MessageBus = field(default_factory=MessageBus)
     queue: asyncio.Queue[Message] = field(init=False)
 
@@ -28,11 +28,17 @@ class Manager(Agent):
         self._objective: str | None = None
         self._tasks: List[Task] = []
         # Ensure agents share the bus
-        for name, agent in self.agents.items():
-            if agent.bus is None:
-                agent.bus = self.bus
-            if agent.queue is None:
-                agent.queue = self.bus.register(name)
+        for name, agent in list(self.agents.items()):
+            self.register_agent(name, agent)
+
+    # -- Registration --------------------------------------------------
+    def register_agent(self, name: str, agent: Agent) -> None:
+        """Register ``agent`` under ``name`` and connect it to the bus."""
+        self.agents[name] = agent
+        if agent.bus is None:
+            agent.bus = self.bus
+        if agent.queue is None:
+            agent.queue = self.bus.register(name)
 
     # -- Agent API -----------------------------------------------------
     def plan(self) -> Message:
