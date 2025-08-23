@@ -1,0 +1,6 @@
+objective: "Plan. Implement. Test."
+agents:
+  planner: {}
+  developer: {}
+  writer: {}
+  tester: {}

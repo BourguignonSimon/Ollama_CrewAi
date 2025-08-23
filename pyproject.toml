@@ -7,11 +7,14 @@ name = "ollama-crewai"
 version = "0.1.0"
 dependencies = [
     "requests>=2.31.0",
+    "pyyaml>=6.0",
 ]
 
 [project.scripts]
 ollama-crewai = "main:main"
+ollama-crewai-agents = "cli:main"
 
 [tool.setuptools]
-py-modules = ["main"]
+packages = ["agents", "core"]
+py-modules = ["main", "cli"]
 package-dir = {"" = "src"}
