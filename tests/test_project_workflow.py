@@ -1,4 +1,3 @@
-import asyncio
 import pathlib
 import sys
 
@@ -108,6 +107,5 @@ async def test_timeout() -> None:
     bus = MessageBus()
     worker = SilentAgent("worker", bus)
     manager = Manager({"worker": worker}, bus=bus)
-
-    with pytest.raises(asyncio.TimeoutError):
-        await asyncio.wait_for(manager.run("alpha."), timeout=0.1)
+    tasks = await manager.run("alpha.", timeout=0.1)
+    assert tasks[0].status is TaskStatus.FAILED

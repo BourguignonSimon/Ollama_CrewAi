@@ -78,21 +78,46 @@ class Manager(Agent):
                     break
 
     # -- Orchestration -------------------------------------------------
-    async def run(self, objective: str) -> List[Task]:
-        """Run the orchestration process for ``objective`` and return tasks."""
+    async def run(self, objective: str, timeout: float | None = None) -> List[Task]:
+        """Run the orchestration process for ``objective`` and return tasks.
+
+        Parameters
+        ----------
+        objective:
+            The overall goal the manager should execute.
+        timeout:
+            Optional maximum time in seconds to wait for results from
+            workers. If exceeded, all incomplete tasks are marked as
+            :class:`~core.task.TaskStatus.FAILED`.
+        """
 
         self._objective = objective
         plan_msg = self.plan()
 
+        async def _safe_handle(agent: Agent) -> None:
+            try:
+                await agent.handle()
+            except Exception:
+                for task in self._tasks:
+                    if task.status is TaskStatus.IN_PROGRESS:
+                        task.status = TaskStatus.FAILED
+
         # Start worker loops
-        workers = [asyncio.create_task(agent.handle()) for agent in self.agents.values()]
+        workers = [asyncio.create_task(_safe_handle(agent)) for agent in self.agents.values()]
 
         self.act(plan_msg)
 
         for _ in self._tasks:
-            msg = await self.queue.get()
-            self.observe(msg)
-            self.queue.task_done()
+            try:
+                msg = await asyncio.wait_for(self.queue.get(), timeout=timeout)
+            except asyncio.TimeoutError:
+                for task in self._tasks:
+                    if task.status is TaskStatus.IN_PROGRESS:
+                        task.status = TaskStatus.FAILED
+                break
+            else:
+                self.observe(msg)
+                self.queue.task_done()
 
         for w in workers:
             w.cancel()
