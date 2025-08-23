@@ -8,6 +8,7 @@ from typing import Dict, List
 
 from core.bus import MessageBus
 from core.task import Task, TaskStatus
+from supervisor import display_progress, read_user_command
 
 from .base import Agent
 from .message import Message
@@ -76,6 +77,7 @@ class Manager(Agent):
                     task.status = TaskStatus.DONE
                     task.result = message.content
                     break
+            display_progress(self._tasks)
 
     # -- Orchestration -------------------------------------------------
     async def run(self, objective: str, timeout: float | None = None) -> List[Task]:
@@ -105,23 +107,37 @@ class Manager(Agent):
         # Start worker loops
         workers = [asyncio.create_task(_safe_handle(agent)) for agent in self.agents.values()]
 
+        async def _user_commands() -> None:
+            while True:
+                cmd = await asyncio.to_thread(read_user_command)
+                if cmd:
+                    self.bus.dispatch("manager", Message(sender="user", content=cmd))
+
+        user_task = asyncio.create_task(_user_commands())
+
         self.act(plan_msg)
 
-        for _ in self._tasks:
-            try:
-                msg = await asyncio.wait_for(self.queue.get(), timeout=timeout)
-            except asyncio.TimeoutError:
-                for task in self._tasks:
-                    if task.status is TaskStatus.IN_PROGRESS:
-                        task.status = TaskStatus.FAILED
-                break
-            else:
-                self.observe(msg)
-                self.queue.task_done()
-
-        for w in workers:
-            w.cancel()
+        try:
+            while any(task.status is TaskStatus.IN_PROGRESS for task in self._tasks):
+                try:
+                    msg = await asyncio.wait_for(self.queue.get(), timeout=timeout)
+                except asyncio.TimeoutError:
+                    for task in self._tasks:
+                        if task.status is TaskStatus.IN_PROGRESS:
+                            task.status = TaskStatus.FAILED
+                    break
+                else:
+                    if msg.metadata and msg.metadata.get("task_id") is not None:
+                        self.observe(msg)
+                        self.queue.task_done()
+        finally:
+            user_task.cancel()
             with suppress(asyncio.CancelledError):
-                await w
+                await user_task
+
+            for w in workers:
+                w.cancel()
+                with suppress(asyncio.CancelledError):
+                    await w
 
         return self._tasks
