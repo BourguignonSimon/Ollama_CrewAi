@@ -68,11 +68,16 @@ The script honors several optional environment variables:
 - `FETCH_LIMIT`: Number of characters to display (defaults to `100`).
 - `FETCH_TIMEOUT`: Timeout in seconds for the request (defaults to `10`).
 - `FETCH_RETRIES`: Number of retry attempts for failed requests (defaults to `0`).
+- `AGENTS_CONFIG`: Path to the agent configuration file used by
+  `ollama-crewai-agents` (defaults to `config/agents.yaml`).
+- `AGENTS_DEBUG`: When set to `1`, `true`, or `yes`, enables debug logging
+  for agent orchestration.
 
 You can set them inline when invoking the CLI:
 
 ```bash
 FETCH_URL=https://example.org FETCH_LIMIT=50 ollama-crewai
+AGENTS_CONFIG=config/agents.yaml AGENTS_DEBUG=1 ollama-crewai-agents
 ```
 
 ### Command-line usage
@@ -98,6 +103,35 @@ ollama-crewai-agents [-c config/agents.yaml] [--debug]
 * `--debug` – enable verbose logging to aid debugging.
 
 The repository ships with a sample configuration file in `config/agents.yaml`.
+
+### Agent configuration and workflow
+
+Agents are declared in a YAML or JSON file.  The manager loads this
+configuration, splits the global ``objective`` into tasks, and
+distributes them round-robin to the registered agents, collecting their
+results as they complete the work.
+
+Example configuration:
+
+```yaml
+objective: "plan feature. implement feature. test feature."
+agents:
+  planner: {}
+  developer: {}
+  tester: {}
+```
+
+Run the manager with the configuration file and optional debugging:
+
+```bash
+ollama-crewai-agents -c config/agents.yaml --debug
+# or rely on environment variables
+AGENTS_CONFIG=config/agents.yaml AGENTS_DEBUG=1 ollama-crewai-agents
+```
+
+During execution the manager coordinates the agents and reports the
+status of each task in the log output, providing a clear view of the
+overall workflow.
 
 ## Possible extensions
 

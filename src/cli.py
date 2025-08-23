@@ -15,6 +15,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, cast
 
+import os
 import yaml
 
 from agents.developer import DeveloperAgent
@@ -74,16 +75,20 @@ def build_manager(config: Dict[str, Any]) -> Manager:
 def main() -> None:
     """Entry point for the ``ollama-crewai-agents`` script."""
 
+    default_config = os.getenv("AGENTS_CONFIG", "config/agents.yaml")
+    debug_default = os.getenv("AGENTS_DEBUG", "").lower() in {"1", "true", "yes"}
+
     parser = argparse.ArgumentParser(description="Run Ollama CrewAI agents")
     parser.add_argument(
         "-c",
         "--config",
-        default="config/agents.yaml",
+        default=default_config,
         help="Path to YAML or JSON configuration file",
     )
     parser.add_argument(
         "--debug",
         action="store_true",
+        default=debug_default,
         help="Enable debug logging",
     )
     args = parser.parse_args()
