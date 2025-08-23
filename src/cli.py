@@ -25,6 +25,9 @@ from agents.planner import PlannerAgent
 from agents.researcher import ResearcherAgent
 from agents.tester import TesterAgent
 from agents.writer import WriterAgent
+from agents.message import Message
+from supervisor.interface import display_progress, read_user_command
+from contextlib import suppress
 
 # Mapping from config keys to concrete agent classes
 AGENT_TYPES = {
@@ -92,6 +95,32 @@ def build_manager(config: Dict[str, Any]) -> Manager:
     return Manager(instances)
 
 
+async def run_supervised(manager: Manager, objective: str) -> list:
+    """Run ``manager`` with a simple supervisor interface."""
+
+    async def supervisor_loop() -> None:
+        while True:
+            msg = await manager.bus.recv_from_supervisor()
+            if msg.content == "plan":
+                tasks = msg.metadata.get("tasks", []) if msg.metadata else []
+                display_progress(tasks)
+                cmd = await asyncio.to_thread(read_user_command) or "approve"
+                manager.bus.send_to_supervisor(
+                    Message(sender="supervisor", content=cmd)
+                )
+            elif msg.content == "progress":
+                tasks = msg.metadata.get("tasks", []) if msg.metadata else []
+                display_progress(tasks)
+
+    ui_task = asyncio.create_task(supervisor_loop())
+    try:
+        return await manager.run(objective)
+    finally:
+        ui_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await ui_task
+
+
 def main() -> None:
     """Entry point for the ``ollama-crewai-agents`` script."""
 
@@ -119,7 +148,7 @@ def main() -> None:
     manager = build_manager(cfg)
     objective = cfg.get("objective", "")
 
-    tasks = asyncio.run(manager.run(objective))
+    tasks = asyncio.run(run_supervised(manager, objective))
     for task in tasks:
         logging.info("%s: %s", task.id, task.result or task.status.name)
 
