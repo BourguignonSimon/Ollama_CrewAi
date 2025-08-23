@@ -11,6 +11,7 @@ from core.bus import MessageBus
 from core.logging import get_logger
 from core.task import Task, TaskStatus
 from core.policies import check_policy
+from core.storage import Storage
 
 from .base import Agent
 from .message import Message
@@ -22,6 +23,7 @@ class Manager(Agent):
 
     agents: Dict[str, Agent] = field(default_factory=dict)
     bus: MessageBus = field(default_factory=MessageBus)
+    storage: Storage | None = None
     queue: asyncio.Queue[Message] = field(init=False)
     logger: logging.LoggerAdapter = field(default_factory=lambda: get_logger("manager"))
 
@@ -34,9 +36,16 @@ class Manager(Agent):
         self._results: List[Message] = []
         self._objective: str | None = None
         self._tasks: List[Task] = []
+        self._decisions: List[str] = []
+        self._history: List[Message] = []
         # Ensure agents share the bus
         for name, agent in list(self.agents.items()):
             self.register_agent(name, agent)
+
+    # -- Persistence ---------------------------------------------------
+    def _persist(self) -> None:
+        if self.storage is not None:
+            self.storage.save(self._tasks, decisions=self._decisions, messages=self._history)
 
     # -- Registration --------------------------------------------------
     def register_agent(self, name: str, agent: Agent) -> None:
@@ -54,12 +63,14 @@ class Manager(Agent):
             raise ValueError("No objective set")
         descriptions = [t.strip() for t in self._objective.split(".") if t.strip()]
         self._tasks = [Task(id=i, description=d) for i, d in enumerate(descriptions, 1)]
+        self._persist()
         # Do not dispatch here; the plan must be approved first.
         return Message(sender="manager", content="plan", metadata={"tasks": self._tasks})
 
     async def request_approval(self, plan: Message) -> bool:
         """Send ``plan`` to the supervisor and await approval."""
         self.bus.send_to_supervisor(plan)
+        self._history.append(plan)
         while True:
             response = await self.bus.recv_from_supervisor()
             if response.sender == "manager" and response.content == "plan":
@@ -67,6 +78,9 @@ class Manager(Agent):
                 self.bus.send_to_supervisor(response)
                 await asyncio.sleep(0)
                 continue
+            self._history.append(response)
+            self._decisions.append(response.content)
+            self._persist()
             return response.content.lower() in {"approve", "approved", "yes"}
 
     def act(self, message: Message) -> Message:
@@ -77,22 +91,17 @@ class Manager(Agent):
             if not check_policy(task.description):
                 task.status = TaskStatus.FAILED
                 # Inform supervisor about the refusal
-                self.bus.send_to_supervisor(
-                    Message(
-                        sender="manager",
-                        content="refused",
-                        metadata={"task_id": task.id},
-                    )
+                refusal = Message(
+                    sender="manager",
+                    content="refused",
+                    metadata={"task_id": task.id},
                 )
+                self.bus.send_to_supervisor(refusal)
+                self._history.append(refusal)
                 # Notify internal queue so ``run`` can progress
-                self.queue.put_nowait(
-                    Message(
-                        sender="manager",
-                        content="refused",
-                        metadata={"task_id": task.id},
-                    )
-                )
+                self.queue.put_nowait(refusal)
                 self.logger.warning("policy_refused", extra={"task": task.id})
+                self._persist()
                 continue
             target = agent_names[idx % len(agent_names)]
             task.status = TaskStatus.IN_PROGRESS
@@ -105,6 +114,7 @@ class Manager(Agent):
                 ),
             )
             self.logger.info("dispatch", extra={"task": task.id})
+        self._persist()
         return Message(sender="manager", content="dispatched", metadata={"tasks": tasks})
 
     def observe(self, message: Message) -> None:
@@ -122,13 +132,14 @@ class Manager(Agent):
                     break
             self.logger.info("result", extra={"task": task_id})
         # Forward progress update to supervisor interface
-        self.bus.send_to_supervisor(
-            Message(
-                sender="manager",
-                content="progress",
-                metadata={"tasks": list(self._tasks)},
-            )
+        progress = Message(
+            sender="manager",
+            content="progress",
+            metadata={"tasks": list(self._tasks)},
         )
+        self.bus.send_to_supervisor(progress)
+        self._history.append(progress)
+        self._persist()
 
     # -- Orchestration -------------------------------------------------
     async def run(self, objective: str, timeout: float | None = None) -> List[Task]:
@@ -157,6 +168,7 @@ class Manager(Agent):
                 for task in self._tasks:
                     if task.status is TaskStatus.IN_PROGRESS:
                         task.status = TaskStatus.FAILED
+                self._persist()
 
         workers = [asyncio.create_task(_safe_handle(agent)) for agent in self.agents.values()]
 
@@ -172,6 +184,7 @@ class Manager(Agent):
                     for task in self._tasks:
                         if task.status is TaskStatus.IN_PROGRESS:
                             task.status = TaskStatus.FAILED
+                    self._persist()
                     break
                 else:
                     if msg.sender != "user":
@@ -184,4 +197,5 @@ class Manager(Agent):
                 with suppress(asyncio.CancelledError):
                     await w
 
+        self._persist()
         return self._tasks

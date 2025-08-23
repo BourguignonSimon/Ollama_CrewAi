@@ -50,3 +50,19 @@ INFO|developer|1|completed
 
 The logger is automatically injected into all agents and the manager, so
 logs are emitted during task processing without extra setup.
+
+## Resuming a workflow
+
+The manager can persist its progress to a JSON file via the :class:`Storage`
+utility. Tasks, supervisor decisions and the messages exchanged with the
+manager are written after every update. To resume a previous run, provide the
+same storage file when constructing the manager and load the saved data:
+
+```python
+from core import Storage
+storage = Storage("state.json")
+tasks, agents, decisions, messages = storage.load()
+```
+
+This allows interrupted projects to continue without losing context from the
+earlier conversation.
