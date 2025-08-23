@@ -17,6 +17,7 @@ from typing import Any, Dict, cast
 
 import os
 import yaml
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from agents.developer import DeveloperAgent
 from agents.manager import Manager
@@ -35,8 +36,17 @@ AGENT_TYPES = {
 }
 
 
+class ConfigModel(BaseModel):
+    """Schema for validating configuration files."""
+
+    objective: str = ""
+    agents: Dict[str, Dict[str, Any]]
+
+    model_config = ConfigDict(extra="forbid")
+
+
 def load_config(path: Path) -> Dict[str, Any]:
-    """Load a YAML or JSON configuration file.
+    """Load and validate a YAML or JSON configuration file.
 
     Parameters
     ----------
@@ -46,10 +56,20 @@ def load_config(path: Path) -> Dict[str, Any]:
 
     text = path.read_text(encoding="utf-8")
     if path.suffix in {".yaml", ".yml"}:
-        return cast(Dict[str, Any], yaml.safe_load(text))
-    if path.suffix == ".json":
-        return cast(Dict[str, Any], json.loads(text))
-    raise ValueError(f"Unsupported config format: {path.suffix}")
+        raw = cast(Dict[str, Any], yaml.safe_load(text))
+    elif path.suffix == ".json":
+        raw = cast(Dict[str, Any], json.loads(text))
+    else:
+        raise ValueError(f"Unsupported config format: {path.suffix}")
+
+    try:
+        cfg = ConfigModel.model_validate(raw)
+    except ValidationError as exc:  # pragma: no cover - exercised in tests
+        errors = "; ".join(
+            f"{'.'.join(str(p) for p in err['loc'])}: {err['msg']}" for err in exc.errors()
+        )
+        raise ValueError(f"Invalid configuration: {errors}") from exc
+    return cfg.model_dump()
 
 
 def build_manager(config: Dict[str, Any]) -> Manager:
