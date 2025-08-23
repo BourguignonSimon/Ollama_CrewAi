@@ -25,10 +25,10 @@ class TesterAgent(Agent):
         if self.bus:
             self.queue = self.bus.register("tester")
 
-    def plan(self) -> Message:  # type: ignore[override]
+    def plan(self) -> Message:
         return Message(sender="tester", content="ready")
 
-    def act(self, message: Message) -> Message:  # type: ignore[override]
+    def act(self, message: Message) -> Message:
         command = message.content or "pytest"
         try:
             result = subprocess.run(
@@ -40,6 +40,6 @@ class TesterAgent(Agent):
             self.last_result = exc.stderr
             return Message(sender="tester", content="failure", metadata={"error": exc.stderr})
 
-    def observe(self, message: Message) -> None:  # type: ignore[override]
+    def observe(self, message: Message) -> None:
         if message.metadata:
             self.last_result = message.metadata.get("output") or message.metadata.get("error")

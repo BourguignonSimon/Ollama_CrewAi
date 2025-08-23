@@ -26,10 +26,10 @@ class WriterAgent(Agent):
         if self.bus:
             self.queue = self.bus.register("writer")
 
-    def plan(self) -> Message:  # type: ignore[override]
+    def plan(self) -> Message:
         return Message(sender="writer", content="ready")
 
-    def act(self, message: Message) -> Message:  # type: ignore[override]
+    def act(self, message: Message) -> Message:
         metadata = message.metadata or {}
         path_value = metadata.get("path")
         text = metadata.get("text", "")
@@ -41,6 +41,6 @@ class WriterAgent(Agent):
             return Message(sender="writer", content=f"wrote {path}")
         return Message(sender="writer", content="no document")
 
-    def observe(self, message: Message) -> None:  # type: ignore[override]
+    def observe(self, message: Message) -> None:
         if message.content.startswith("wrote"):
             self.documents.append(Path(message.content.split(" ", 1)[1]))

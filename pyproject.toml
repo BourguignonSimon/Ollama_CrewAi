@@ -8,6 +8,12 @@ version = "0.1.0"
 dependencies = [
     "requests>=2.31.0",
     "pyyaml>=6.0",
+    # Agent framework and LLM integrations
+    "crewai",
+    "pydantic",
+    "aiohttp",
+    "openai",
+    "litellm",
 ]
 
 [project.scripts]
