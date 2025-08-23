@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="160">
+  <rect x="110" y="20" width="80" height="40" fill="#f0f0f0" stroke="#000"/>
+  <text x="150" y="45" font-size="12" text-anchor="middle">Manager</text>
+
+  <rect x="20" y="100" width="80" height="40" fill="#f0f0f0" stroke="#000"/>
+  <text x="60" y="125" font-size="12" text-anchor="middle">Planner</text>
+
+  <rect x="110" y="100" width="80" height="40" fill="#f0f0f0" stroke="#000"/>
+  <text x="150" y="125" font-size="12" text-anchor="middle">Developer</text>
+
+  <rect x="200" y="100" width="80" height="40" fill="#f0f0f0" stroke="#000"/>
+  <text x="240" y="125" font-size="12" text-anchor="middle">Tester</text>
+
+  <line x1="150" y1="60" x2="60" y2="100" stroke="#000"/>
+  <line x1="150" y1="60" x2="150" y2="100" stroke="#000"/>
+  <line x1="150" y1="60" x2="240" y2="100" stroke="#000"/>
+</svg>
