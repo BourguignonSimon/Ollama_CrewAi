@@ -5,9 +5,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 import asyncio
 import inspect
+import logging
 from typing import Awaitable
 
 from core.bus import MessageBus
+from core.logging import get_logger
 from .message import Message
 
 
@@ -22,6 +24,16 @@ class Agent(ABC):
     # Bus integration -------------------------------------------------
     bus: MessageBus | None = None
     queue: asyncio.Queue[Message] | None = None
+    logger: logging.LoggerAdapter = get_logger("Agent")
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if "logger" not in cls.__dict__:
+            cls.logger = get_logger(cls.__name__)
+
+    def __init__(self, logger: logging.LoggerAdapter | None = None) -> None:
+        if logger is not None:
+            self.logger = logger
 
     @abstractmethod
     def plan(self) -> Message:
@@ -54,6 +66,8 @@ class Agent(ABC):
 
         while True:
             message = await self.queue.get()
+            task_id = message.metadata.get("task_id") if message.metadata else ""
+            self.logger.info("received", extra={"task": task_id})
             response = self.act(message)
             if inspect.isawaitable(response):
                 response = await response
@@ -66,6 +80,6 @@ class Agent(ABC):
                 metadata.update(response.metadata)
             if metadata:
                 response.metadata = metadata
-
+            self.logger.info("completed", extra={"task": task_id})
             await self.bus.send("manager", response)
             self.queue.task_done()
