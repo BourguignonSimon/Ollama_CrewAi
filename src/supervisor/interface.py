@@ -13,7 +13,7 @@ def read_user_command() -> str | None:
     """
     try:
         cmd = input()
-    except EOFError:
+    except (EOFError, OSError):
         return None
     cmd = cmd.strip()
     return cmd or None

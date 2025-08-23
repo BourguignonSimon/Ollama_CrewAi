@@ -110,8 +110,10 @@ class Manager(Agent):
         async def _user_commands() -> None:
             while True:
                 cmd = await asyncio.to_thread(read_user_command)
-                if cmd:
-                    self.bus.dispatch("manager", Message(sender="user", content=cmd))
+                if cmd is None:
+                    break
+                self.bus.dispatch("manager", Message(sender="user", content=cmd))
+                await asyncio.sleep(0)
 
         user_task = asyncio.create_task(_user_commands())
 
@@ -129,15 +131,14 @@ class Manager(Agent):
                 else:
                     if msg.metadata and msg.metadata.get("task_id") is not None:
                         self.observe(msg)
-                        self.queue.task_done()
+                    self.queue.task_done()
         finally:
-            user_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await user_task
-
             for w in workers:
                 w.cancel()
                 with suppress(asyncio.CancelledError):
                     await w
+            user_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await user_task
 
         return self._tasks
