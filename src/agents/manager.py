@@ -10,6 +10,7 @@ import logging
 from core.bus import MessageBus
 from core.logging import get_logger
 from core.task import Task, TaskStatus
+from core.policies import check_policy
 
 from .base import Agent
 from .message import Message
@@ -73,6 +74,26 @@ class Manager(Agent):
         tasks: List[Task] = message.metadata.get("tasks", []) if message.metadata else []
         agent_names = list(self.agents.keys())
         for idx, task in enumerate(tasks):
+            if not check_policy(task.description):
+                task.status = TaskStatus.FAILED
+                # Inform supervisor about the refusal
+                self.bus.send_to_supervisor(
+                    Message(
+                        sender="manager",
+                        content="refused",
+                        metadata={"task_id": task.id},
+                    )
+                )
+                # Notify internal queue so ``run`` can progress
+                self.queue.put_nowait(
+                    Message(
+                        sender="manager",
+                        content="refused",
+                        metadata={"task_id": task.id},
+                    )
+                )
+                self.logger.warning("policy_refused", extra={"task": task.id})
+                continue
             target = agent_names[idx % len(agent_names)]
             task.status = TaskStatus.IN_PROGRESS
             self.bus.dispatch(
@@ -93,8 +114,11 @@ class Manager(Agent):
         if task_id is not None:
             for task in self._tasks:
                 if task.id == task_id:
-                    task.status = TaskStatus.DONE
-                    task.result = message.content
+                    if message.content == "refused":
+                        task.status = TaskStatus.FAILED
+                    else:
+                        task.status = TaskStatus.DONE
+                        task.result = message.content
                     break
             self.logger.info("result", extra={"task": task_id})
         # Forward progress update to supervisor interface
