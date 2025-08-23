@@ -11,17 +11,7 @@ from core.task import Task, TaskStatus
 
 from .base import Agent
 from .message import Message
-
-
-def read_user_command() -> str | None:
-    """Read a user command if available.
-
-    This function is intentionally a thin wrapper around ``input`` so that
-    tests can monkeypatch it.  Returning ``None`` signals that no further
-    commands are available and the polling loop should terminate.
-    """
-
-    return None
+from supervisor.interface import display_progress, read_user_command
 
 
 @dataclass
@@ -87,27 +77,7 @@ class Manager(Agent):
                     task.status = TaskStatus.DONE
                     task.result = message.content
                     break
-
-    async def _user_commands(self) -> None:
-        """Poll for user commands in a background task.
-
-        ``read_user_command`` executes in a thread to avoid blocking the event
-        loop.  Returning ``None`` indicates that polling should stop.  A short
-        sleep is inserted when no command is produced to prevent busy looping
-        and excessive thread creation.
-        """
-
-        while True:
-            try:
-                command = await asyncio.to_thread(read_user_command)
-            except asyncio.CancelledError:
-                break
-            if command is None:
-                break
-            if not command:
-                await asyncio.sleep(0.05)
-                continue
-            self.bus.dispatch("manager", Message(sender="user", content=command))
+        display_progress(self._tasks)
 
     # -- Orchestration -------------------------------------------------
     async def run(self, objective: str, timeout: float | None = None) -> List[Task]:
@@ -134,13 +104,27 @@ class Manager(Agent):
                     if task.status is TaskStatus.IN_PROGRESS:
                         task.status = TaskStatus.FAILED
 
-        user_task = asyncio.create_task(self._user_commands())
         workers = [asyncio.create_task(_safe_handle(agent)) for agent in self.agents.values()]
 
         self.act(plan_msg)
 
+        remaining = len(self._tasks)
+        polling = True
+
         try:
-            for _ in self._tasks:
+            while remaining:
+                if polling:
+                    try:
+                        command = await asyncio.wait_for(
+                            asyncio.to_thread(read_user_command), timeout=0.1
+                        )
+                    except asyncio.TimeoutError:
+                        command = None
+                    if command is None:
+                        polling = False
+                    elif command:
+                        self.bus.dispatch("manager", Message(sender="user", content=command))
+
                 try:
                     msg = await asyncio.wait_for(self.queue.get(), timeout=timeout)
                 except asyncio.TimeoutError:
@@ -149,15 +133,14 @@ class Manager(Agent):
                             task.status = TaskStatus.FAILED
                     break
                 else:
-                    self.observe(msg)
+                    if msg.sender != "user":
+                        self.observe(msg)
+                        remaining -= 1
                     self.queue.task_done()
         finally:
             for w in workers:
                 w.cancel()
                 with suppress(asyncio.CancelledError):
                     await w
-            user_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await user_task
 
         return self._tasks
