@@ -1,3 +1,4 @@
+import asyncio
 import pathlib
 import sys
 
@@ -71,7 +72,10 @@ async def test_full_mission_success() -> None:
     worker = UppercaseAgent("worker", bus)
     manager = Manager({"worker": worker}, bus=bus)
 
-    tasks = await manager.run("alpha. beta.")
+    run_task = asyncio.create_task(manager.run("alpha. beta."))
+    await bus.recv_from_supervisor()
+    bus.send_to_supervisor(Message(sender="supervisor", content="approve"))
+    tasks = await run_task
 
     assert [t.result for t in tasks] == ["ALPHA", "BETA"]
     assert all(t.status is TaskStatus.DONE for t in tasks)
@@ -87,7 +91,10 @@ async def test_agent_unavailable() -> None:
     bus._queues.pop("worker")
 
     with pytest.raises(KeyError):
-        await manager.run("task.")
+        run_task = asyncio.create_task(manager.run("task."))
+        await bus.recv_from_supervisor()
+        bus.send_to_supervisor(Message(sender="supervisor", content="approve"))
+        await run_task
 
 
 @pytest.mark.asyncio
@@ -96,7 +103,10 @@ async def test_invalid_message() -> None:
     worker = NoMetadataAgent("worker", bus)
     manager = Manager({"worker": worker}, bus=bus)
 
-    tasks = await manager.run("alpha.")
+    run_task = asyncio.create_task(manager.run("alpha."))
+    await bus.recv_from_supervisor()
+    bus.send_to_supervisor(Message(sender="supervisor", content="approve"))
+    tasks = await run_task
 
     assert tasks[0].status is TaskStatus.IN_PROGRESS
     assert tasks[0].result is None
@@ -107,5 +117,8 @@ async def test_timeout() -> None:
     bus = MessageBus()
     worker = SilentAgent("worker", bus)
     manager = Manager({"worker": worker}, bus=bus)
-    tasks = await manager.run("alpha.", timeout=0.1)
+    run_task = asyncio.create_task(manager.run("alpha.", timeout=0.1))
+    await bus.recv_from_supervisor()
+    bus.send_to_supervisor(Message(sender="supervisor", content="approve"))
+    tasks = await run_task
     assert tasks[0].status is TaskStatus.FAILED

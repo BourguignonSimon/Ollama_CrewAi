@@ -48,7 +48,15 @@ async def test_manager_reports_progress_via_supervisor_queue() -> None:
 
     manager_task = asyncio.create_task(manager.run("hello."))
 
-    progress = await asyncio.wait_for(bus.recv_from_supervisor(), timeout=1)
+    # Manager first sends the plan for approval
+    plan = await asyncio.wait_for(bus.recv_from_supervisor(), timeout=2)
+    assert plan.content == "plan"
+
+    # Approve the plan so the manager can proceed
+    bus.send_to_supervisor(Message(sender="supervisor", content="approve"))
+    await asyncio.sleep(0)
+
+    progress = await asyncio.wait_for(bus.recv_from_supervisor(), timeout=2)
     assert progress.sender == "manager"
     tasks = progress.metadata["tasks"]
     assert tasks[0].status is TaskStatus.DONE

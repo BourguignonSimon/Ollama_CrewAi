@@ -1,3 +1,4 @@
+import asyncio
 import pathlib
 import sys
 
@@ -38,7 +39,11 @@ async def test_manager_orchestration() -> None:
     worker2 = WorkerAgent("w2", bus)
     manager = Manager({"w1": worker1, "w2": worker2}, bus=bus)
 
-    tasks = await manager.run("alpha. beta.")
+    run_task = asyncio.create_task(manager.run("alpha. beta."))
+    plan = await asyncio.wait_for(bus.recv_from_supervisor(), timeout=1)
+    assert plan.content == "plan"
+    bus.send_to_supervisor(Message(sender="supervisor", content="approve"))
+    tasks = await run_task
 
     assert [t.result for t in tasks] == ["ALPHA", "BETA"]
     assert all(t.status is TaskStatus.DONE for t in tasks)
@@ -72,7 +77,11 @@ async def test_dynamic_registration() -> None:
     worker = LazyWorker()
     manager.register_agent("w", worker)
 
-    tasks = await manager.run("gamma.")
+    run_task = asyncio.create_task(manager.run("gamma."))
+    plan = await asyncio.wait_for(bus.recv_from_supervisor(), timeout=1)
+    assert plan.content == "plan"
+    bus.send_to_supervisor(Message(sender="supervisor", content="approve"))
+    tasks = await run_task
 
     assert [t.result for t in tasks] == ["GAMMA"]
     assert worker.observed[0].content == "gamma"
