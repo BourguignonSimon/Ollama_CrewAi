@@ -13,6 +13,17 @@ from .base import Agent
 from .message import Message
 
 
+def read_user_command() -> str | None:
+    """Read a user command if available.
+
+    This function is intentionally a thin wrapper around ``input`` so that
+    tests can monkeypatch it.  Returning ``None`` signals that no further
+    commands are available and the polling loop should terminate.
+    """
+
+    return None
+
+
 @dataclass
 class Manager(Agent):
     """Agent responsible for coordinating other agents."""
@@ -77,6 +88,27 @@ class Manager(Agent):
                     task.result = message.content
                     break
 
+    async def _user_commands(self) -> None:
+        """Poll for user commands in a background task.
+
+        ``read_user_command`` executes in a thread to avoid blocking the event
+        loop.  Returning ``None`` indicates that polling should stop.  A short
+        sleep is inserted when no command is produced to prevent busy looping
+        and excessive thread creation.
+        """
+
+        while True:
+            try:
+                command = await asyncio.to_thread(read_user_command)
+            except asyncio.CancelledError:
+                break
+            if command is None:
+                break
+            if not command:
+                await asyncio.sleep(0.05)
+                continue
+            self.bus.dispatch("manager", Message(sender="user", content=command))
+
     # -- Orchestration -------------------------------------------------
     async def run(self, objective: str, timeout: float | None = None) -> List[Task]:
         """Run the orchestration process for ``objective`` and return tasks.
@@ -102,26 +134,30 @@ class Manager(Agent):
                     if task.status is TaskStatus.IN_PROGRESS:
                         task.status = TaskStatus.FAILED
 
-        # Start worker loops
+        user_task = asyncio.create_task(self._user_commands())
         workers = [asyncio.create_task(_safe_handle(agent)) for agent in self.agents.values()]
 
         self.act(plan_msg)
 
-        for _ in self._tasks:
-            try:
-                msg = await asyncio.wait_for(self.queue.get(), timeout=timeout)
-            except asyncio.TimeoutError:
-                for task in self._tasks:
-                    if task.status is TaskStatus.IN_PROGRESS:
-                        task.status = TaskStatus.FAILED
-                break
-            else:
-                self.observe(msg)
-                self.queue.task_done()
-
-        for w in workers:
-            w.cancel()
+        try:
+            for _ in self._tasks:
+                try:
+                    msg = await asyncio.wait_for(self.queue.get(), timeout=timeout)
+                except asyncio.TimeoutError:
+                    for task in self._tasks:
+                        if task.status is TaskStatus.IN_PROGRESS:
+                            task.status = TaskStatus.FAILED
+                    break
+                else:
+                    self.observe(msg)
+                    self.queue.task_done()
+        finally:
+            for w in workers:
+                w.cancel()
+                with suppress(asyncio.CancelledError):
+                    await w
+            user_task.cancel()
             with suppress(asyncio.CancelledError):
-                await w
+                await user_task
 
         return self._tasks
