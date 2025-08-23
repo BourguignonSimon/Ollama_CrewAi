@@ -28,11 +28,15 @@ class TesterAgent(Agent):
     def plan(self) -> Message:
         return Message(sender="tester", content="ready")
 
-    def act(self, message: Message) -> Message:
+    async def act(self, message: Message) -> Message:
         command = message.content or "pytest"
         try:
-            result = subprocess.run(
-                command.split(), capture_output=True, text=True, check=True
+            result = await asyncio.to_thread(
+                subprocess.run,
+                command.split(),
+                capture_output=True,
+                text=True,
+                check=True,
             )
             self.last_result = result.stdout
             return Message(sender="tester", content="success", metadata={"output": result.stdout})

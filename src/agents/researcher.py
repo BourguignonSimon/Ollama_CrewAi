@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import requests
 import asyncio
+import aiohttp
 
 from core.bus import MessageBus
 
@@ -13,10 +13,10 @@ from .message import Message
 
 @dataclass
 class ResearcherAgent(Agent):
-    """Agent that fetches information from the web using ``requests``."""
+    """Agent that fetches information from the web using ``aiohttp``."""
 
     capabilities: list[str] = field(default_factory=lambda: ["research", "web-fetch"])
-    tools: list[str] = field(default_factory=lambda: ["requests"])
+    tools: list[str] = field(default_factory=lambda: ["aiohttp"])
     last_response: str | None = None
     bus: MessageBus | None = None
     queue: asyncio.Queue[Message] | None = field(init=False, default=None)
@@ -28,12 +28,15 @@ class ResearcherAgent(Agent):
     def plan(self) -> Message:
         return Message(sender="researcher", content="ready")
 
-    def act(self, message: Message) -> Message:
+    async def act(self, message: Message) -> Message:
         url = message.content
         try:
-            response = requests.get(url, timeout=5)
-            response.raise_for_status()
-            text = response.text[:200]
+            timeout = aiohttp.ClientTimeout(total=5)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(url) as response:
+                    response.raise_for_status()
+                    text = await response.text()
+            text = text[:200]
             self.last_response = text
             return Message(sender="researcher", content=text)
         except Exception as exc:  # pragma: no cover - network error paths

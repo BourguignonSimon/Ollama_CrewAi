@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import asyncio
+import inspect
+from typing import Awaitable
 
 from core.bus import MessageBus
 from .message import Message
@@ -26,7 +28,7 @@ class Agent(ABC):
         """Generate a plan represented as a :class:`Message`."""
 
     @abstractmethod
-    def act(self, message: Message) -> Message:
+    def act(self, message: Message) -> Message | Awaitable[Message]:
         """Perform an action based on ``message`` and return the response.
 
         Parameters
@@ -53,6 +55,8 @@ class Agent(ABC):
         while True:
             message = await self.queue.get()
             response = self.act(message)
+            if inspect.isawaitable(response):
+                response = await response
             self.observe(response)
 
             metadata: dict[str, object] = {}
