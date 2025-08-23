@@ -17,9 +17,11 @@ def test_save_and_load(tmp_path):
     agent_states = {"agent1": {"count": 3}, "agent2": {"status": "idle"}}
 
     storage.save(tasks, agent_states)
-    loaded_tasks, loaded_agents = storage.load()
+    loaded_tasks, loaded_agents, loaded_decisions, loaded_messages = storage.load()
 
     assert loaded_tasks == tasks
     assert loaded_agents == agent_states
+    assert loaded_decisions == []
+    assert loaded_messages == []
     assert loaded_tasks[0].status is TaskStatus.DONE
     assert loaded_tasks[1].status is TaskStatus.PENDING
