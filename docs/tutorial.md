@@ -38,3 +38,15 @@ AGENTS_CONFIG=config/agents.yaml AGENTS_DEBUG=1 ollama-crewai-agents
 2. It splits the objective into discrete tasks.
 3. Tasks are dispatched round-robin to the agents.
 4. Agents process tasks and report results back to the manager.
+
+## Logging
+
+The framework uses a structured logger configured via `core.logging`. Each
+entry includes the log level, the emitting agent and the task identifier:
+
+```
+INFO|developer|1|completed
+```
+
+The logger is automatically injected into all agents and the manager, so
+logs are emitted during task processing without extra setup.

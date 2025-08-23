@@ -5,8 +5,10 @@ import asyncio
 from contextlib import suppress
 from dataclasses import dataclass, field
 from typing import Dict, List
+import logging
 
 from core.bus import MessageBus
+from core.logging import get_logger
 from core.task import Task, TaskStatus
 
 from .base import Agent
@@ -20,8 +22,10 @@ class Manager(Agent):
     agents: Dict[str, Agent] = field(default_factory=dict)
     bus: MessageBus = field(default_factory=MessageBus)
     queue: asyncio.Queue[Message] = field(init=False)
+    logger: logging.LoggerAdapter = field(default_factory=lambda: get_logger("manager"))
 
     def __post_init__(self) -> None:
+        super().__init__(self.logger)
         # Register manager queue
         self.queue = self.bus.register("manager")
         # Ensure supervisor channel exists for UI interaction
@@ -79,6 +83,7 @@ class Manager(Agent):
                     metadata={"task_id": task.id},
                 ),
             )
+            self.logger.info("dispatch", extra={"task": task.id})
         return Message(sender="manager", content="dispatched", metadata={"tasks": tasks})
 
     def observe(self, message: Message) -> None:
@@ -91,6 +96,7 @@ class Manager(Agent):
                     task.status = TaskStatus.DONE
                     task.result = message.content
                     break
+            self.logger.info("result", extra={"task": task_id})
         # Forward progress update to supervisor interface
         self.bus.send_to_supervisor(
             Message(

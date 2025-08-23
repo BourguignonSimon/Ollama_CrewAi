@@ -4,8 +4,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import asyncio
 import aiohttp
+import logging
 
 from core.bus import MessageBus
+from core.logging import get_logger
 
 from .base import Agent
 from .message import Message
@@ -20,8 +22,10 @@ class ResearcherAgent(Agent):
     last_response: str | None = None
     bus: MessageBus | None = None
     queue: asyncio.Queue[Message] | None = field(init=False, default=None)
+    logger: logging.LoggerAdapter = field(default_factory=lambda: get_logger("researcher"))
 
     def __post_init__(self) -> None:
+        super().__init__(self.logger)
         if self.bus:
             self.queue = self.bus.register("researcher")
 
