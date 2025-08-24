@@ -11,21 +11,22 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import os
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, Dict
 
-import os
-from config.schema import ConfigModel, load_config
-
 from agents.developer import DeveloperAgent
 from agents.manager import Manager
+from agents.message import Message
 from agents.planner import PlannerAgent
 from agents.researcher import ResearcherAgent
 from agents.tester import TesterAgent
 from agents.writer import WriterAgent
-from agents.message import Message
+from config.schema import ConfigModel, load_config
+from core import policies
+from core.storage import Storage
 from supervisor.interface import display_progress, read_user_command
-from contextlib import suppress
 
 # Mapping from config keys to concrete agent classes
 AGENT_TYPES = {
@@ -35,10 +36,6 @@ AGENT_TYPES = {
     "tester": TesterAgent,
     "researcher": ResearcherAgent,
 }
-
-
-from core import policies
-from core.storage import Storage
 
 
 def build_manager(config: ConfigModel | Dict[str, Any]) -> Manager:
@@ -99,7 +96,7 @@ async def run_basic(manager: Manager, objective: str) -> list:
     """Run ``manager`` without interactive supervision."""
 
     async def auto_approve() -> None:
-        plan = await manager.bus.recv_from_supervisor()
+        await manager.bus.recv_from_supervisor()
         manager.bus.send_to_supervisor(Message(sender="supervisor", content="approve"))
 
     ui_task = asyncio.create_task(auto_approve())

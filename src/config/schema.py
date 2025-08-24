@@ -1,11 +1,11 @@
-from __future__ import annotations
-
 """Pydantic models for validating application configuration."""
 
+from __future__ import annotations
+
+import json
 from pathlib import Path
 from typing import Any, Dict, List
 
-import json
 import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError
 
