@@ -124,7 +124,7 @@ class Manager(Agent):
         if task_id is not None:
             for task in self._tasks:
                 if task.id == task_id:
-                    if message.content == "refused":
+                    if message.content in {"refused", "error"}:
                         task.status = TaskStatus.FAILED
                     else:
                         task.status = TaskStatus.DONE
@@ -168,6 +168,12 @@ class Manager(Agent):
                 for task in self._tasks:
                     if task.status is TaskStatus.IN_PROGRESS:
                         task.status = TaskStatus.FAILED
+                        error = Message(
+                            sender="manager",
+                            content="error",
+                            metadata={"task_id": task.id},
+                        )
+                        self.queue.put_nowait(error)
                 self._persist()
 
         workers = [asyncio.create_task(_safe_handle(agent)) for agent in self.agents.values()]
