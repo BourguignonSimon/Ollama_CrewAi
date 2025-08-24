@@ -1,0 +1,24 @@
+objective: "Plan. Code. Test."
+policies:
+  allowed_commands: [plan, code, test]
+  network_access: false
+storage:
+  path: state.json
+supervision:
+  enabled: true
+agents:
+  planner:
+    model: gpt-4
+    tools: []
+  developer:
+    model: gpt-4
+    tools: [filesystem]
+  tester:
+    model: gpt-4
+    tools: [pytest]
+  writer:
+    model: gpt-4
+    tools: [filesystem]
+  researcher:
+    model: gpt-4
+    tools: [aiohttp]
