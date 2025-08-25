@@ -39,9 +39,27 @@ class MessageBus:
         """Synchronously send ``message`` to the supervisor queue."""
         self.dispatch("supervisor", message)
 
-    async def recv_from_supervisor(self) -> Message:
-        """Receive the next message from the supervisor queue."""
+    async def recv_from_supervisor(self, include_supervisor: bool = False) -> Message:
+        """Receive the next message from the supervisor queue.
+
+        Parameters
+        ----------
+        include_supervisor:
+            If ``True``, messages originating from the ``"supervisor"``
+            sender will be returned.  By default such messages are skipped
+            so that tests or interfaces waiting for updates from agents do
+            not accidentally consume their own commands.
+        """
         queue = self._queues.get("supervisor")
         if queue is None:
             raise KeyError("No queue registered for supervisor")
-        return await queue.get()
+
+        while True:
+            message = await queue.get()
+            if not include_supervisor and message.sender == "supervisor":
+                # Put the supervisor's own message back and yield control so
+                # the intended recipient can consume it.
+                queue.put_nowait(message)
+                await asyncio.sleep(0)
+                continue
+            return message

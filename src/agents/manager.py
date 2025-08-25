@@ -76,7 +76,7 @@ class Manager(Agent):
         # message.
         await asyncio.sleep(0)
         while True:
-            response = await self.bus.recv_from_supervisor()
+            response = await self.bus.recv_from_supervisor(include_supervisor=True)
             if response.sender == "manager" and response.content == "plan":
                 # Put the plan back for the supervisor to read and yield
                 # so it can be consumed before we listen again.
