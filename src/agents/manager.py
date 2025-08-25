@@ -71,10 +71,15 @@ class Manager(Agent):
         """Send ``plan`` to the supervisor and await approval."""
         self.bus.send_to_supervisor(plan)
         self._history.append(plan)
+        # Give the supervisor a chance to consume the plan before we start
+        # waiting for the approval response to avoid racing with our own
+        # message.
+        await asyncio.sleep(0)
         while True:
             response = await self.bus.recv_from_supervisor()
             if response.sender == "manager" and response.content == "plan":
-                # Put the plan back for the supervisor to read
+                # Put the plan back for the supervisor to read and yield
+                # so it can be consumed before we listen again.
                 self.bus.send_to_supervisor(response)
                 await asyncio.sleep(0)
                 continue
