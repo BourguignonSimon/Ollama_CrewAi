@@ -26,7 +26,7 @@ from agents.writer import WriterAgent
 from config.schema import ConfigModel, load_config
 from core import policies
 from core.storage import Storage
-from supervisor.interface import display_progress, read_user_command
+from supervisor import interface
 
 # Mapping from config keys to concrete agent classes
 AGENT_TYPES = {
@@ -74,14 +74,18 @@ async def run_supervised(manager: Manager, objective: str) -> list:
             msg = await manager.bus.recv_from_supervisor()
             if msg.content == "plan":
                 tasks = msg.metadata.get("tasks", []) if msg.metadata else []
-                display_progress(tasks)
-                cmd = await asyncio.to_thread(read_user_command) or "approve"
+                interface.display_progress(tasks)
+                cmd = await asyncio.to_thread(interface.read_user_command) or "approve"
                 manager.bus.send_to_supervisor(
                     Message(sender="supervisor", content=cmd)
                 )
+                await asyncio.sleep(0)
             elif msg.content == "progress":
                 tasks = msg.metadata.get("tasks", []) if msg.metadata else []
-                display_progress(tasks)
+                interface.display_progress(tasks)
+            else:
+                manager.bus.dispatch("supervisor", msg)
+                await asyncio.sleep(0)
 
     ui_task = asyncio.create_task(supervisor_loop())
     try:
