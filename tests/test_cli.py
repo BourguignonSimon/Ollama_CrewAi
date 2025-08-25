@@ -22,7 +22,7 @@ def test_cli_load_and_run(tmp_path):
     manager = cli.build_manager(cfg)
 
     async def orchestrate() -> list:
-        run_task = asyncio.create_task(manager.run(cfg["objective"]))
+        run_task = asyncio.create_task(manager.run(cfg.objective))
         plan = await asyncio.wait_for(manager.bus.recv_from_supervisor(), timeout=1)
         assert plan.content == "plan"
         manager.bus.send_to_supervisor(Message(sender="supervisor", content="approve"))

@@ -10,24 +10,23 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import logging
-from pathlib import Path
-from typing import Any, Dict, cast
-
 import os
-import yaml
-from pydantic import BaseModel, ConfigDict, ValidationError
+from contextlib import suppress
+from pathlib import Path
+from typing import Any, Dict
 
 from agents.developer import DeveloperAgent
 from agents.manager import Manager
+from agents.message import Message
 from agents.planner import PlannerAgent
 from agents.researcher import ResearcherAgent
 from agents.tester import TesterAgent
 from agents.writer import WriterAgent
-from agents.message import Message
-from supervisor.interface import display_progress, read_user_command
-from contextlib import suppress
+from config.schema import ConfigModel, load_config
+from core import policies
+from core.storage import Storage
+from supervisor import interface
 
 # Mapping from config keys to concrete agent classes
 AGENT_TYPES = {
@@ -39,50 +38,17 @@ AGENT_TYPES = {
 }
 
 
-class ConfigModel(BaseModel):
-    """Schema for validating configuration files."""
-
-    objective: str = ""
-    agents: Dict[str, Dict[str, Any]]
-
-    model_config = ConfigDict(extra="forbid")
-
-
-def load_config(path: Path) -> Dict[str, Any]:
-    """Load and validate a YAML or JSON configuration file.
-
-    Parameters
-    ----------
-    path:
-        Path to the configuration file.
-    """
-
-    text = path.read_text(encoding="utf-8")
-    if path.suffix in {".yaml", ".yml"}:
-        raw = cast(Dict[str, Any], yaml.safe_load(text))
-    elif path.suffix == ".json":
-        raw = cast(Dict[str, Any], json.loads(text))
-    else:
-        raise ValueError(f"Unsupported config format: {path.suffix}")
-
-    try:
-        cfg = ConfigModel.model_validate(raw)
-    except ValidationError as exc:  # pragma: no cover - exercised in tests
-        errors = "; ".join(
-            f"{'.'.join(str(p) for p in err['loc'])}: {err['msg']}" for err in exc.errors()
-        )
-        raise ValueError(f"Invalid configuration: {errors}") from exc
-    return cfg.model_dump()
-
-
-def build_manager(config: Dict[str, Any]) -> Manager:
+def build_manager(config: ConfigModel | Dict[str, Any]) -> Manager:
     """Create a :class:`Manager` based on ``config``.
 
     The configuration should contain an ``agents`` mapping where each key
     corresponds to an agent type listed in :data:`AGENT_TYPES`.
     """
 
-    agents_cfg = config.get("agents", {})
+    if not isinstance(config, ConfigModel):
+        config = ConfigModel.model_validate(config)
+
+    agents_cfg = config.agents
     instances: Dict[str, Any] = {}
     for name, params in agents_cfg.items():
         cls = AGENT_TYPES.get(name)
@@ -92,7 +58,12 @@ def build_manager(config: Dict[str, Any]) -> Manager:
             instances[name] = cls(**params)
         else:
             instances[name] = cls()
-    return Manager(instances)
+    if config.policies.allowed_commands is not None:
+        policies.ALLOWED_COMMANDS = set(config.policies.allowed_commands)
+    if config.policies.network_access is not None:
+        policies.NETWORK_ACCESS = config.policies.network_access
+    storage = Storage(config.storage.path) if config.storage else None
+    return Manager(instances, storage=storage)
 
 
 async def run_supervised(manager: Manager, objective: str) -> list:
@@ -103,16 +74,36 @@ async def run_supervised(manager: Manager, objective: str) -> list:
             msg = await manager.bus.recv_from_supervisor()
             if msg.content == "plan":
                 tasks = msg.metadata.get("tasks", []) if msg.metadata else []
-                display_progress(tasks)
-                cmd = await asyncio.to_thread(read_user_command) or "approve"
+                interface.display_progress(tasks)
+                cmd = await asyncio.to_thread(interface.read_user_command) or "approve"
                 manager.bus.send_to_supervisor(
                     Message(sender="supervisor", content=cmd)
                 )
+                await asyncio.sleep(0)
             elif msg.content == "progress":
                 tasks = msg.metadata.get("tasks", []) if msg.metadata else []
-                display_progress(tasks)
+                interface.display_progress(tasks)
+            else:
+                manager.bus.dispatch("supervisor", msg)
+                await asyncio.sleep(0)
 
     ui_task = asyncio.create_task(supervisor_loop())
+    try:
+        return await manager.run(objective)
+    finally:
+        ui_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await ui_task
+
+
+async def run_basic(manager: Manager, objective: str) -> list:
+    """Run ``manager`` without interactive supervision."""
+
+    async def auto_approve() -> None:
+        await manager.bus.recv_from_supervisor()
+        manager.bus.send_to_supervisor(Message(sender="supervisor", content="approve"))
+
+    ui_task = asyncio.create_task(auto_approve())
     try:
         return await manager.run(objective)
     finally:
@@ -146,9 +137,12 @@ def main() -> None:
 
     cfg = load_config(Path(args.config))
     manager = build_manager(cfg)
-    objective = cfg.get("objective", "")
+    objective = cfg.objective
 
-    tasks = asyncio.run(run_supervised(manager, objective))
+    if cfg.supervision.enabled:
+        tasks = asyncio.run(run_supervised(manager, objective))
+    else:
+        tasks = asyncio.run(run_basic(manager, objective))
     for task in tasks:
         logging.info("%s: %s", task.id, task.result or task.status.name)
 
