@@ -1,37 +1,33 @@
-"""Command-line interface for configuring and running agents.
+"""Command-line interface for configuring and running a CrewAI crew.
 
 This module reads a YAML or JSON configuration file describing the
-available agents and creates a :class:`~agents.manager.Manager`
-accordingly.  It also exposes a small CLI utility used via the
+available agents, builds a set of :class:`crewai.Agent` instances and
+their corresponding :class:`crewai.Task`s and finally executes them using
+``Crew.kickoff``.  It also exposes a small CLI utility used via the
 ``ollama-crewai-agents`` entry point.
 """
 
 from __future__ import annotations
 
 import argparse
-import asyncio
 import json
 import logging
 import os
 import sys
-from contextlib import suppress
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import yaml
+from crewai import Crew, Process, Task
 from pydantic import ValidationError
 
 from agents.developer import DeveloperAgent
-from agents.manager import Manager
-from agents.message import Message
 from agents.planner import PlannerAgent
 from agents.researcher import ResearcherAgent
 from agents.tester import TesterAgent
 from agents.writer import WriterAgent
 from config.schema import ConfigModel
 from core import policies
-from core.storage import Storage
-from supervisor import interface
 
 # Mapping from config keys to concrete agent classes
 AGENT_TYPES = {
@@ -43,12 +39,12 @@ AGENT_TYPES = {
 }
 
 
-def build_manager(config: ConfigModel | Dict[str, Any]) -> Manager:
-    """Create a :class:`Manager` based on ``config``.
-
-    The configuration should contain an ``agents`` mapping where each key
-    corresponds to an agent type listed in :data:`AGENT_TYPES`.
-    """
+def build_crew(
+    config: ConfigModel | Dict[str, Any],
+    *,
+    process: Process = Process.sequential,
+) -> Crew:
+    """Create a :class:`Crew` based on ``config``."""
 
     if not isinstance(config, ConfigModel):
         config = ConfigModel.model_validate(config)
@@ -63,22 +59,69 @@ def build_manager(config: ConfigModel | Dict[str, Any]) -> Manager:
             instances[name] = cls(**params)
         else:
             instances[name] = cls()
+
     if config.policies.allowed_commands is not None:
         policies.ALLOWED_COMMANDS = set(config.policies.allowed_commands)
     if config.policies.network_access is not None:
         policies.NETWORK_ACCESS = config.policies.network_access
-    storage = Storage(config.storage.path) if config.storage else None
-    return Manager(instances, storage=storage)
+
+    tasks: List[Task] = []
+
+    planner_task: Task | None = None
+    if "planner" in instances:
+        planner_task = Task(
+            description=f"Plan the steps to achieve the objective: {config.objective}",
+            agent=instances["planner"],
+            expected_output="A numbered list of tasks to complete",
+        )
+        tasks.append(planner_task)
+
+    research_task: Task | None = None
+    if "researcher" in instances:
+        research_task = Task(
+            description="Collect any external information required.",
+            agent=instances["researcher"],
+            expected_output="Summary of research findings",
+            context=[planner_task] if planner_task else None,
+        )
+        tasks.append(research_task)
+
+    develop_task: Task | None = None
+    if "developer" in instances:
+        ctx = [t for t in [planner_task, research_task] if t]
+        develop_task = Task(
+            description="Implement the planned solution.",
+            agent=instances["developer"],
+            expected_output="Source code files",
+            context=ctx or None,
+        )
+        tasks.append(develop_task)
+
+    if "tester" in instances:
+        tasks.append(
+            Task(
+                description="Test the implementation and report results.",
+                agent=instances["tester"],
+                expected_output="Test reports",
+                context=[develop_task] if develop_task else None,
+            )
+        )
+
+    if "writer" in instances:
+        tasks.append(
+            Task(
+                description="Write documentation for the project.",
+                agent=instances["writer"],
+                expected_output="Documentation text",
+                context=[develop_task] if develop_task else None,
+            )
+        )
+
+    return Crew(agents=list(instances.values()), tasks=tasks, process=process)
 
 
 def load_config(path: Path) -> ConfigModel:
-    """Load and validate a YAML or JSON configuration file.
-
-    Parameters
-    ----------
-    path:
-        Path to the configuration file.
-    """
+    """Load and validate a YAML or JSON configuration file."""
 
     text = path.read_text(encoding="utf-8")
     if path.suffix in {".yaml", ".yml"}:
@@ -95,52 +138,6 @@ def load_config(path: Path) -> ConfigModel:
             f"{'.'.join(str(p) for p in err['loc'])}: {err['msg']}" for err in exc.errors()
         )
         raise ValueError(f"Invalid configuration at {path}: {errors}") from exc
-
-
-async def run_supervised(manager: Manager, objective: str) -> list:
-    """Run ``manager`` with a simple supervisor interface."""
-
-    async def supervisor_loop() -> None:
-        while True:
-            msg = await manager.bus.recv_from_supervisor()
-            if msg.content == "plan":
-                tasks = msg.metadata.get("tasks", []) if msg.metadata else []
-                interface.display_progress(tasks)
-                cmd = await asyncio.to_thread(interface.read_user_command) or "approve"
-                manager.bus.send_to_supervisor(
-                    Message(sender="supervisor", content=cmd)
-                )
-                await asyncio.sleep(0)
-            elif msg.content == "progress":
-                tasks = msg.metadata.get("tasks", []) if msg.metadata else []
-                interface.display_progress(tasks)
-            else:
-                manager.bus.dispatch("supervisor", msg)
-                await asyncio.sleep(0)
-
-    ui_task = asyncio.create_task(supervisor_loop())
-    try:
-        return await manager.run(objective)
-    finally:
-        ui_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await ui_task
-
-
-async def run_basic(manager: Manager, objective: str) -> list:
-    """Run ``manager`` without interactive supervision."""
-
-    async def auto_approve() -> None:
-        await manager.bus.recv_from_supervisor()
-        manager.bus.send_to_supervisor(Message(sender="supervisor", content="approve"))
-
-    ui_task = asyncio.create_task(auto_approve())
-    try:
-        return await manager.run(objective)
-    finally:
-        ui_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await ui_task
 
 
 def main() -> None:
@@ -170,16 +167,14 @@ def main() -> None:
     except ValueError as exc:
         print(exc, file=sys.stderr)
         raise SystemExit(1) from exc
-    manager = build_manager(cfg)
-    objective = cfg.objective
 
-    if cfg.supervision.enabled:
-        tasks = asyncio.run(run_supervised(manager, objective))
-    else:
-        tasks = asyncio.run(run_basic(manager, objective))
-    for task in tasks:
-        logging.info("%s: %s", task.id, task.result or task.status.name)
+    crew = build_crew(cfg, process=Process.sequential)
+    crew.kickoff(inputs={"objective": cfg.objective})
+
+    for task in crew.tasks:
+        logging.info("%s", getattr(task, "output", None))
 
 
 if __name__ == "__main__":  # pragma: no cover - manual execution only
     main()
+
