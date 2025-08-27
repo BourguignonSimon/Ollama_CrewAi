@@ -1,21 +1,36 @@
 # Ollama_CrewAi
 
-This project demonstrates how to fetch data from the web using Python's `requests` library. It provides a minimal example for educational purposes or as a base for experiments.
+Ollama_CrewAi illustre une architecture **Manager ↔ Agents** minimaliste. Le manager lit un objectif, le découpe en tâches et les distribue aux agents qui rendent leur résultat. Ce dépôt fournit un orchestrateur de démonstration ainsi qu'un exemple de récupération HTTP conservé en annexe.
 
-## Features
+## Démarrage rapide
 
-- Simple `fetch_example` function that retrieves a snippet from a specified URL (defaults to [example.com](https://example.com)) with configurable character limit, timeout, and retry behavior.
-- Lightweight structure with a single dependency.
+1. **Installation**
 
-## Usage
+   ```bash
+   git clone <repository-url>
+   cd Ollama_CrewAi
+   pip install .
+   ```
 
-Run the main script to display the first 100 characters returned by the site:
+2. **Lancer le scénario fourni**
 
-```bash
-python src/main.py
-```
+   ```bash
+   ollama-crewai-agents -c config/agents.yaml
+   ```
 
-You can customize the URL, length of the returned snippet, request timeout, and number of retries by passing arguments to `fetch_example` in `src/main.py`.
+   Exemple de session :
+
+   ```text
+   $ ollama-crewai-agents -c config/agents.yaml
+   manager  | objective loaded
+   planner  | plan feature
+   developer| implement feature
+   tester   | test feature
+   ```
+
+3. **Aller plus loin**
+
+   Consultez le [tutoriel](docs/tutorial.md) pour une présentation guidée et le [guide d'extension](docs/extension.md) pour créer vos propres agents.
 
 ## Installation and Testing
 
@@ -154,6 +169,23 @@ AGENTS_CONFIG=config/agents.yaml AGENTS_DEBUG=1 ollama-crewai-agents
 During execution the manager coordinates the agents and reports the
 status of each task in the log output, providing a clear view of the
 overall workflow.
+
+## Annexe : `fetch_example`
+
+Ce projet contient aussi un exemple minimaliste de récupération HTTP.
+La fonction `fetch_example` télécharge les premiers caractères d'une URL
+([example.com](https://example.com) par défaut) avec des paramètres pour
+limiter la longueur du texte, le délai et le nombre de tentatives.
+
+### Utilisation
+
+```bash
+python src/main.py
+```
+
+Les arguments de `fetch_example` dans `src/main.py` permettent de
+personnaliser l'URL, la longueur du résultat ou encore le nombre de
+reprises en cas d'échec.
 
 ## Possible extensions
 
