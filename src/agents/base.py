@@ -71,7 +71,10 @@ class Agent(ABC):
             response = self.act(message)
             if inspect.isawaitable(response):
                 response = await response
-            self.observe(response)
+
+            observation = self.observe(response)
+            if inspect.isawaitable(observation):
+                await observation
 
             metadata: dict[str, object] = {}
             if message.metadata:

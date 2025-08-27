@@ -15,7 +15,7 @@ from .message import Message
 
 @dataclass
 class TesterAgent(Agent):
-    """Agent that runs pytest and returns the results."""
+    """Agent that runs pytest in a worker thread and returns the results."""
     __test__ = False  # prevent pytest from treating this as a test class
     model: str = "gpt-4"
     capabilities: list[str] = field(default_factory=lambda: ["testing"])
