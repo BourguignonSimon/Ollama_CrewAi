@@ -1,6 +1,6 @@
-objective: "Plan. Code. Test."
+objective: "Créer un site web simple présentant les stratégies d'entraînement en trail (course à pied, trail, renforcement, yoga, etc.) et fournir une critique de chaque étape."
 policies:
-  allowed_commands: [plan, code, test]
+  allowed_commands: [plan, code, write, test, research]
   network_access: false
 storage:
   path: state.json
@@ -13,12 +13,12 @@ agents:
   developer:
     model: codellama
     tools: [filesystem]
-  tester:
-    model: llama3
-    tools: [pytest]
   writer:
     model: llama3
     tools: [filesystem]
+  tester:
+    model: llama3
+    tools: [pytest]
   researcher:
     model: mistral
     tools: [aiohttp]
