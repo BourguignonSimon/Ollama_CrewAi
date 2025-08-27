@@ -19,6 +19,7 @@ from typing import Any, Dict, List
 
 import yaml
 from crewai import Crew, Process, Task
+from langchain_ollama import OllamaLLM
 from pydantic import ValidationError
 
 from agents.developer import DeveloperAgent
@@ -56,7 +57,16 @@ def build_crew(
         if cls is None:
             raise ValueError(f"Unknown agent type: {name}")
         if isinstance(params, dict):
-            instances[name] = cls(**params)
+            p: Dict[str, Any] = dict(params)
+            llm_cfg = p.pop("llm", None)
+            if isinstance(llm_cfg, dict):
+                llm = OllamaLLM(
+                    model=llm_cfg.get("model"),
+                    base_url=llm_cfg.get("base_url"),
+                    temperature=llm_cfg.get("temperature"),
+                )
+                p["llm"] = llm
+            instances[name] = cls(**p)
         else:
             instances[name] = cls()
 
