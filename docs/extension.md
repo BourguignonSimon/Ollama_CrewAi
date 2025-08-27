@@ -2,6 +2,9 @@
 
 Ce guide décrit comment ajouter un nouvel agent à **Ollama CrewAi**.
 
+Pour une introduction complète au fonctionnement du manager et à la
+configuration initiale, consultez le [tutoriel](tutorial.md).
+
 ## 1. Hériter de `Agent`
 
 Créez une sous-classe de `agents.base.Agent` et implémentez les méthodes
