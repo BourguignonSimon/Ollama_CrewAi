@@ -37,6 +37,7 @@ class NoMetadataAgent(Agent):
         self.name = name
         self.bus = bus
         self.queue = bus.register(name)
+        self.handled = 0
 
     def plan(self) -> Message:  # type: ignore[override]
         return Message(sender=self.name, content="ready")
@@ -52,11 +53,13 @@ class NoMetadataAgent(Agent):
             raise RuntimeError("Agent is not connected to a message bus")
         while True:
             message = await self.queue.get()
+            self.handled += 1
             response = self.act(message)
             self.observe(response)
             # Intentionally omit metadata to simulate an invalid message
             await self.bus.send("manager", response)
             self.queue.task_done()
+            await asyncio.sleep(0.1)
 
 
 class SilentAgent(UppercaseAgent):
@@ -110,13 +113,12 @@ async def test_invalid_message() -> None:
     worker = NoMetadataAgent("worker", bus)
     manager = Manager({"worker": worker}, bus=bus)
 
-    run_task = asyncio.create_task(manager.run("alpha."))
+    run_task = asyncio.create_task(manager.run("alpha. beta."))
     await bus.recv_from_supervisor()
     bus.send_to_supervisor(Message(sender="supervisor", content="approve"))
     tasks = await run_task
-
-    assert tasks[0].status is TaskStatus.IN_PROGRESS
-    assert tasks[0].result is None
+    assert all(t.status is TaskStatus.IN_PROGRESS for t in tasks)
+    assert worker.handled == 1
 
 
 @pytest.mark.asyncio
