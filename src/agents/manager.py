@@ -179,6 +179,7 @@ class Manager(Agent):
                             metadata={"task_id": task.id},
                         )
                         self.queue.put_nowait(error)
+                        self.logger.exception("worker_error", extra={"task": task.id})
                 self._persist()
 
         workers = [asyncio.create_task(_safe_handle(agent)) for agent in self.agents.values()]
@@ -195,6 +196,14 @@ class Manager(Agent):
                     for task in self._tasks:
                         if task.status is TaskStatus.IN_PROGRESS:
                             task.status = TaskStatus.FAILED
+                            self.logger.error("timeout", extra={"task": task.id})
+                    self._persist()
+                    break
+                except Exception:
+                    for task in self._tasks:
+                        if task.status is TaskStatus.IN_PROGRESS:
+                            task.status = TaskStatus.FAILED
+                            self.logger.exception("queue_error", extra={"task": task.id})
                     self._persist()
                     break
                 else:
