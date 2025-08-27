@@ -4,27 +4,41 @@ from __future__ import annotations
 
 from typing import Dict, List, Tuple
 
+from langchain_ollama import OllamaLLM
+
 from .base import Agent
 
 
 class Manager(Agent):
     """Simple manager that distributes tasks to other agents."""
 
-    role: str = "Manager"
-    goal: str = "Coordinate agents to accomplish objectives"
-    backstory: str = "Oversees project execution and integrates results."
-    verbose: bool = False
-    allow_delegation: bool = True
-    llm: str = "llama3"
-
-    def __init__(self, agents: Dict[str, Agent] | None = None) -> None:
-        super().__init__()
+    def __init__(
+        self,
+        agents: Dict[str, Agent] | None = None,
+        *,
+        role: str = "Manager",
+        goal: str = "Coordinate agents to accomplish objectives",
+        backstory: str = "Oversees project execution and integrates results.",
+        model: str = "llama3",
+        llm: OllamaLLM | None = None,
+        verbose: bool = False,
+        allow_delegation: bool = True,
+    ) -> None:
+        super().__init__(
+            role=role,
+            goal=goal,
+            backstory=backstory,
+            llm=llm or OllamaLLM(model=model),
+            verbose=verbose,
+            allow_delegation=allow_delegation,
+        )
         self.agents: Dict[str, Agent] = agents or {}
         self.tasks: List[str] = []
         self.results: List[Tuple[str, str]] = []
 
     def plan(self, objective: str) -> List[str]:
-        self.tasks = [t.strip() for t in objective.split(".") if t.strip()]
+        plan_text = self.llm.invoke(objective)
+        self.tasks = [t.strip().lstrip("-0123456789. ") for t in plan_text.splitlines() if t.strip()]
         return self.tasks
 
     def act(self, objective: str) -> List[Tuple[str, str]]:

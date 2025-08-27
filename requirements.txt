@@ -10,3 +10,4 @@ aiohttp
 openai
 litellm
 ollama
+langchain-ollama
