@@ -41,4 +41,23 @@ def test_cli_invalid_config(tmp_path):
     )
     with pytest.raises(ValueError) as excinfo:
         cli.load_config(cfg_file)
-    assert "agents.planner" in str(excinfo.value)
+    message = str(excinfo.value)
+    assert str(cfg_file) in message
+    assert "agents.planner" in message
+
+
+def test_cli_main_invalid_config(tmp_path, monkeypatch, capsys):
+    cfg_file = tmp_path / "agents.yaml"
+    cfg_file.write_text(
+        "objective: 'delta'\n"
+        "agents:\n"
+        "  planner: 'nope'\n"
+    )
+    monkeypatch.setenv("AGENTS_DEBUG", "0")
+    monkeypatch.setenv("AGENTS_CONFIG", str(cfg_file))
+    monkeypatch.setattr(sys, "argv", ["prog", "-c", str(cfg_file)])
+    with pytest.raises(SystemExit):
+        cli.main()
+    err = capsys.readouterr().err
+    assert str(cfg_file) in err
+    assert "agents.planner" in err
