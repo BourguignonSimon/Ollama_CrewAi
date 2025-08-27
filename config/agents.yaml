@@ -1,17 +1,47 @@
 objective: "Plan. Implement. Test."
 agents:
   planner:
-    model: llama3
+    role: "Planner"
+    goal: "Break down objectives into tasks"
+    backstory: "A strategic planner that organises work."
+    llm:
+      model: llama3
+      base_url: "http://localhost:11434"
+      temperature: 0.0
     tools: []
   developer:
-    model: codellama
+    role: "Developer"
+    goal: "Write and read files as requested"
+    backstory: "An AI developer assisting with code tasks."
+    llm:
+      model: codellama
+      base_url: "http://localhost:11434"
+      temperature: 0.0
     tools: [filesystem]
   writer:
-    model: llama3
+    role: "Writer"
+    goal: "Produce documentation files"
+    backstory: "An AI writer creating project docs."
+    llm:
+      model: llama3
+      base_url: "http://localhost:11434"
+      temperature: 0.0
     tools: [filesystem]
   tester:
-    model: llama3
+    role: "Tester"
+    goal: "Verify code correctness by running tests"
+    backstory: "An AI tasked with executing test commands."
+    llm:
+      model: llama3
+      base_url: "http://localhost:11434"
+      temperature: 0.0
     tools: [pytest]
   researcher:
-    model: mistral
+    role: "Researcher"
+    goal: "Gather information from the internet"
+    backstory: "An AI that searches the web for relevant data."
+    llm:
+      model: mistral
+      base_url: "http://localhost:11434"
+      temperature: 0.0
     tools: [aiohttp]

@@ -20,6 +20,7 @@ from typing import Any, Dict
 
 import yaml
 from pydantic import ValidationError
+from langchain_ollama import OllamaLLM
 
 from agents.developer import DeveloperAgent
 from agents.manager import Manager
@@ -59,10 +60,18 @@ def build_manager(config: ConfigModel | Dict[str, Any]) -> Manager:
         cls = AGENT_TYPES.get(name)
         if cls is None:
             raise ValueError(f"Unknown agent type: {name}")
-        if isinstance(params, dict):
-            instances[name] = cls(**params)
-        else:
-            instances[name] = cls()
+        llm_cfg = params.llm
+        llm = OllamaLLM(
+            model=llm_cfg.model,
+            base_url=llm_cfg.base_url,
+            temperature=llm_cfg.temperature,
+        )
+        instances[name] = cls(
+            role=params.role,
+            goal=params.goal,
+            backstory=params.backstory,
+            llm=llm,
+        )
     if config.policies.allowed_commands is not None:
         policies.ALLOWED_COMMANDS = set(config.policies.allowed_commands)
     if config.policies.network_access is not None:

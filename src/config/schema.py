@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Dict, List
 
 import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -35,11 +35,33 @@ class SupervisionConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class LLMConfig(BaseModel):
+    """Configuration for an agent's language model."""
+
+    model: str
+    base_url: str | None = None
+    temperature: float | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class AgentConfig(BaseModel):
+    """Configuration for a single agent."""
+
+    role: str
+    goal: str
+    backstory: str
+    llm: LLMConfig
+    tools: List[str] | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class ConfigModel(BaseModel):
     """Top-level application configuration."""
 
     objective: str = ""
-    agents: Dict[str, Dict[str, Any]]
+    agents: Dict[str, AgentConfig]
     policies: PoliciesConfig = PoliciesConfig()
     storage: StorageConfig | None = None
     supervision: SupervisionConfig = SupervisionConfig()
