@@ -10,11 +10,16 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import logging
 import os
+import sys
 from contextlib import suppress
 from pathlib import Path
 from typing import Any, Dict
+
+import yaml
+from pydantic import ValidationError
 
 from agents.developer import DeveloperAgent
 from agents.manager import Manager
@@ -23,7 +28,7 @@ from agents.planner import PlannerAgent
 from agents.researcher import ResearcherAgent
 from agents.tester import TesterAgent
 from agents.writer import WriterAgent
-from config.schema import ConfigModel, load_config
+from config.schema import ConfigModel
 from core import policies
 from core.storage import Storage
 from supervisor import interface
@@ -64,6 +69,32 @@ def build_manager(config: ConfigModel | Dict[str, Any]) -> Manager:
         policies.NETWORK_ACCESS = config.policies.network_access
     storage = Storage(config.storage.path) if config.storage else None
     return Manager(instances, storage=storage)
+
+
+def load_config(path: Path) -> ConfigModel:
+    """Load and validate a YAML or JSON configuration file.
+
+    Parameters
+    ----------
+    path:
+        Path to the configuration file.
+    """
+
+    text = path.read_text(encoding="utf-8")
+    if path.suffix in {".yaml", ".yml"}:
+        raw = yaml.safe_load(text)  # type: ignore[assignment]
+    elif path.suffix == ".json":
+        raw = json.loads(text)
+    else:
+        raise ValueError(f"Unsupported config format: {path.suffix}")
+
+    try:
+        return ConfigModel.model_validate(raw)
+    except ValidationError as exc:
+        errors = "; ".join(
+            f"{'.'.join(str(p) for p in err['loc'])}: {err['msg']}" for err in exc.errors()
+        )
+        raise ValueError(f"Invalid configuration at {path}: {errors}") from exc
 
 
 async def run_supervised(manager: Manager, objective: str) -> list:
@@ -134,8 +165,11 @@ def main() -> None:
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
-
-    cfg = load_config(Path(args.config))
+    try:
+        cfg = load_config(Path(args.config))
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        raise SystemExit(1) from exc
     manager = build_manager(cfg)
     objective = cfg.objective
 
