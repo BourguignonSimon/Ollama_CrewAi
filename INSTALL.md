@@ -11,6 +11,8 @@ These steps describe how to set up the project and install its dependencies.
    ```bash
    pip install -r requirements.txt
    ```
+   The project relies solely on local components; no OpenAI or LiteLLM
+   API key is needed.
 3. Run the application:
    ```bash
    python src/main.py
