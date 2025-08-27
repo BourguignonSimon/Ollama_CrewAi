@@ -1,6 +1,6 @@
 import pathlib
 import sys
-import inspect
+import requests
 import pytest
 
 # Ensure src directory on path
@@ -11,12 +11,14 @@ from agents.researcher import ResearcherAgent
 
 
 @pytest.mark.asyncio
-async def test_researcher_act_async(monkeypatch):
-    """ResearcherAgent.act should fetch data using a mocked aiohttp response."""
+async def test_researcher_act_requests_mock(monkeypatch, requests_mock):
+    """ResearcherAgent.act should fetch mocked data via requests_mock."""
+    url = "http://example.com/data"
+    requests_mock.get(url, text="mocked data")
 
     class DummyResponse:
-        def __init__(self, text: str) -> None:
-            self._text = text
+        def __init__(self, url: str) -> None:
+            self._url = url
 
         async def __aenter__(self):
             return self
@@ -24,11 +26,11 @@ async def test_researcher_act_async(monkeypatch):
         async def __aexit__(self, exc_type, exc, tb):
             return False
 
-        def raise_for_status(self):
+        def raise_for_status(self) -> None:
             return None
 
-        async def text(self):
-            return self._text
+        async def text(self) -> str:
+            return requests.get(self._url).text
 
     class DummySession:
         async def __aenter__(self):
@@ -37,15 +39,15 @@ async def test_researcher_act_async(monkeypatch):
         async def __aexit__(self, exc_type, exc, tb):
             return False
 
-        def get(self, url):
-            return DummyResponse("dummy response")
+        def get(self, url: str) -> DummyResponse:
+            return DummyResponse(url)
 
     monkeypatch.setattr(
         "agents.researcher.aiohttp.ClientSession", lambda *args, **kwargs: DummySession()
     )
 
     agent = ResearcherAgent()
-    assert inspect.iscoroutinefunction(agent.act)
-    response = await agent.act(Message(sender="tester", content="http://example.com"))
-    assert response.content == "dummy response"
-    assert agent.last_response == "dummy response"
+    response = await agent.act(Message(sender="tester", content=url))
+
+    assert response.content == "mocked data"
+    assert agent.last_response == "mocked data"
