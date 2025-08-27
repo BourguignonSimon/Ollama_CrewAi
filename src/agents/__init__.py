@@ -1,7 +1,6 @@
-"""Agents package providing base agent and messaging constructs."""
+"""Agents package exposing subclasses of :class:`crewai.Agent`."""
 
 from .base import Agent
-from .message import Message
 from .manager import Manager
 from .planner import PlannerAgent
 from .researcher import ResearcherAgent
@@ -11,7 +10,6 @@ from .writer import WriterAgent
 
 __all__ = [
     "Agent",
-    "Message",
     "Manager",
     "PlannerAgent",
     "ResearcherAgent",

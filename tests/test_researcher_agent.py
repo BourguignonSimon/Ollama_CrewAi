@@ -6,7 +6,6 @@ import pytest
 # Ensure src directory on path
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
-from agents import Message
 from agents.researcher import ResearcherAgent
 
 
@@ -47,7 +46,7 @@ async def test_researcher_act_requests_mock(monkeypatch, requests_mock):
     )
 
     agent = ResearcherAgent()
-    response = await agent.act(Message(sender="tester", content=url))
+    response = await agent.act(url)
 
-    assert response.content == "mocked data"
+    assert response == "mocked data"
     assert agent.last_response == "mocked data"

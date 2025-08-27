@@ -6,7 +6,6 @@ import pytest
 # Ensure src directory on path
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
-from agents import Message
 from agents.tester import TesterAgent
 
 
@@ -32,8 +31,7 @@ async def test_tester_act_async(monkeypatch):
 
     agent = TesterAgent()
     assert inspect.iscoroutinefunction(agent.act)
-    response = await agent.act(Message(sender="manager", content="echo hi"))
+    response = await agent.act("echo hi")
     assert called["func"] is fake_run
-    assert response.content == "success"
-    assert response.metadata["output"] == "ok"
+    assert response == "success"
     assert agent.last_result == "ok"

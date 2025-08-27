@@ -1,43 +1,29 @@
-"""Researcher agent for web information gathering."""
+"""Researcher agent that fetches information from the web."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-import asyncio
+from typing import Optional
 import aiohttp
-import logging
-
-from core.bus import MessageBus
-from core.logging import get_logger
 
 from .base import Agent
-from .message import Message
 
 
-@dataclass
 class ResearcherAgent(Agent):
-    """Agent that fetches information from the web using ``aiohttp``.
+    """Agent that performs simple HTTP GET requests."""
 
-    The :meth:`act` method performs an asynchronous HTTP GET request and
-    returns the first 200 characters of the response body.
-    """
-    model: str = "mistral"
-    capabilities: list[str] = field(default_factory=lambda: ["research", "web-fetch"])
-    tools: list[str] = field(default_factory=lambda: ["aiohttp"])
-    last_response: str | None = None
-    bus: MessageBus | None = None
-    queue: asyncio.Queue[Message] | None = field(init=False, default=None)
-    logger: logging.LoggerAdapter = field(default_factory=lambda: get_logger("researcher"))
+    role: str = "Researcher"
+    goal: str = "Gather information from the internet"
+    backstory: str = "An AI that searches the web for relevant data."
+    verbose: bool = False
+    allow_delegation: bool = False
+    llm: str = "mistral"
 
-    def __post_init__(self) -> None:
-        super().__init__(self.logger)
-        if self.bus:
-            self.queue = self.bus.register("researcher")
+    last_response: Optional[str] = None
 
-    def plan(self) -> Message:
-        return Message(sender="researcher", content="ready")
+    def plan(self) -> str:
+        return "ready"
 
-    async def act(self, message: Message) -> Message:
-        url = message.content
+    async def act(self, url: str) -> str:
         try:
             timeout = aiohttp.ClientTimeout(total=5)
             async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -46,11 +32,11 @@ class ResearcherAgent(Agent):
                     text = await response.text()
             text = text[:200]
             self.last_response = text
-            return Message(sender="researcher", content=text)
-        except Exception as exc:  # pragma: no cover - network error paths
+            return text
+        except Exception as exc:  # pragma: no cover - network errors
             error = f"error: {exc}"
             self.last_response = error
-            return Message(sender="researcher", content=error)
+            return error
 
-    def observe(self, message: Message) -> None:
-        self.last_response = message.content
+    def observe(self, result: str) -> None:
+        self.last_response = result

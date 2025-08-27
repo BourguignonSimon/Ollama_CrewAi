@@ -1,40 +1,31 @@
 """Tester agent for executing test suites."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import subprocess
 import asyncio
-import logging
-
-from core.bus import MessageBus
-from core.logging import get_logger
+from typing import Optional
 
 from .base import Agent
-from .message import Message
 
 
-@dataclass
 class TesterAgent(Agent):
-    """Agent that runs pytest in a worker thread and returns the results."""
-    __test__ = False  # prevent pytest from treating this as a test class
-    model: str = "llama3"
-    capabilities: list[str] = field(default_factory=lambda: ["testing"])
-    tools: list[str] = field(default_factory=lambda: ["pytest"])
-    last_result: str | None = None
-    bus: MessageBus | None = None
-    queue: asyncio.Queue[Message] | None = field(init=False, default=None)
-    logger: logging.LoggerAdapter = field(default_factory=lambda: get_logger("tester"))
+    """Agent that runs shell commands such as pytest."""
 
-    def __post_init__(self) -> None:
-        super().__init__(self.logger)
-        if self.bus:
-            self.queue = self.bus.register("tester")
+    __test__ = False  # prevent pytest from collecting as a test class
+    role: str = "Tester"
+    goal: str = "Verify code correctness by running tests"
+    backstory: str = "An AI tasked with executing test commands."
+    verbose: bool = False
+    allow_delegation: bool = False
+    llm: str = "llama3"
 
-    def plan(self) -> Message:
-        return Message(sender="tester", content="ready")
+    last_result: Optional[str] = None
 
-    async def act(self, message: Message) -> Message:
-        command = message.content or "pytest"
+    def plan(self) -> str:
+        return "ready"
+
+    async def act(self, command: str = "pytest") -> str:
         try:
             result = await asyncio.to_thread(
                 subprocess.run,
@@ -44,11 +35,10 @@ class TesterAgent(Agent):
                 check=True,
             )
             self.last_result = result.stdout
-            return Message(sender="tester", content="success", metadata={"output": result.stdout})
+            return "success"
         except subprocess.CalledProcessError as exc:  # pragma: no cover - failure path
             self.last_result = exc.stderr
-            return Message(sender="tester", content="failure", metadata={"error": exc.stderr})
+            return "failure"
 
-    def observe(self, message: Message) -> None:
-        if message.metadata:
-            self.last_result = message.metadata.get("output") or message.metadata.get("error")
+    def observe(self, result: str) -> None:
+        self.last_result = result
