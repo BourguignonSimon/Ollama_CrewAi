@@ -1,4 +1,5 @@
 requests==2.31.0
+pytest
 pytest-asyncio
 PyYAML>=6.0
 requests-mock
@@ -6,3 +7,6 @@ requests-mock
 crewai
 pydantic
 aiohttp
+openai
+litellm
+ollama
