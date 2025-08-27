@@ -1,59 +1,49 @@
-"""Developer agent responsible for code generation and file interactions."""
+"""Developer agent responsible for basic file interactions."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from pathlib import Path
-import asyncio
-import logging
-
-from core.bus import MessageBus
-from core.logging import get_logger
+from typing import Optional, Union
 
 from .base import Agent
-from .message import Message
 
 
-@dataclass
 class DeveloperAgent(Agent):
     """Agent that writes provided code snippets to the filesystem."""
-    model: str = "codellama"
-    capabilities: list[str] = field(
-        default_factory=lambda: ["coding", "file-writing", "file-reading"]
-    )
-    tools: list[str] = field(default_factory=lambda: ["filesystem"])
-    last_written: Path | None = None
-    bus: MessageBus | None = None
-    queue: asyncio.Queue[Message] | None = field(init=False, default=None)
-    logger: logging.LoggerAdapter = field(default_factory=lambda: get_logger("developer"))
 
-    def __post_init__(self) -> None:
-        super().__init__(self.logger)
-        if self.bus:
-            self.queue = self.bus.register("developer")
+    role: str = "Developer"
+    goal: str = "Write and read files as requested"
+    backstory: str = "An AI developer assisting with code tasks."
+    verbose: bool = False
+    allow_delegation: bool = False
+    llm: str = "codellama"
 
-    def plan(self) -> Message:
-        return Message(sender="developer", content="ready")
+    last_written: Optional[Path] = None
 
-    def act(self, message: Message) -> Message:
-        metadata = message.metadata or {}
-        path_value = metadata.get("path")
-        code = metadata.get("code", "")
-        read_path = metadata.get("read")
-        if path_value:
-            path = Path(path_value)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(code)
-            self.last_written = path
-            return Message(sender="developer", content=f"wrote {path}")
-        if read_path:
-            path = Path(read_path)
+    def plan(self) -> str:
+        return "ready"
+
+    def act(
+        self,
+        *,
+        path: Union[str, Path] | None = None,
+        code: str = "",
+        read: Union[str, Path] | None = None,
+    ) -> str:
+        if path is not None:
+            p = Path(path)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(code)
+            self.last_written = p
+            return f"wrote {p}"
+        if read is not None:
+            p = Path(read)
             try:
-                content = path.read_text()
+                return p.read_text()
             except FileNotFoundError:
-                content = "file not found"
-            return Message(sender="developer", content=content)
-        return Message(sender="developer", content="no action")
+                return "file not found"
+        return "no action"
 
-    def observe(self, message: Message) -> None:
-        if message.content.startswith("wrote"):
-            self.last_written = Path(message.content.split(" ", 1)[1])
+    def observe(self, result: str) -> None:
+        if result.startswith("wrote "):
+            self.last_written = Path(result.split(" ", 1)[1])
