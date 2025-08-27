@@ -66,6 +66,13 @@ class SilentAgent(UppercaseAgent):
         return
 
 
+class FailingAgent(UppercaseAgent):
+    """Agent that raises an exception when handling messages."""
+
+    async def handle(self) -> None:  # type: ignore[override]
+        raise RuntimeError("boom")
+
+
 @pytest.mark.asyncio
 async def test_full_mission_success() -> None:
     bus = MessageBus()
@@ -113,12 +120,28 @@ async def test_invalid_message() -> None:
 
 
 @pytest.mark.asyncio
-async def test_timeout() -> None:
+async def test_timeout(caplog: pytest.LogCaptureFixture) -> None:
     bus = MessageBus()
     worker = SilentAgent("worker", bus)
     manager = Manager({"worker": worker}, bus=bus)
+    caplog.set_level("ERROR")
     run_task = asyncio.create_task(manager.run("alpha.", timeout=0.1))
     await bus.recv_from_supervisor()
     bus.send_to_supervisor(Message(sender="supervisor", content="approve"))
     tasks = await run_task
     assert tasks[0].status is TaskStatus.FAILED
+    assert any(record.message == "timeout" for record in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_worker_exception_logging(caplog: pytest.LogCaptureFixture) -> None:
+    bus = MessageBus()
+    worker = FailingAgent("worker", bus)
+    manager = Manager({"worker": worker}, bus=bus)
+    caplog.set_level("ERROR")
+    run_task = asyncio.create_task(manager.run("alpha."))
+    await bus.recv_from_supervisor()
+    bus.send_to_supervisor(Message(sender="supervisor", content="approve"))
+    tasks = await run_task
+    assert tasks[0].status is TaskStatus.FAILED
+    assert any(record.message == "worker_error" for record in caplog.records)
