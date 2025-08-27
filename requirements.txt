@@ -2,9 +2,7 @@ requests==2.31.0
 pytest-asyncio
 PyYAML>=6.0
 requests-mock
-# Additional dependencies for agent framework and LLM integrations
+# Additional dependencies for agent framework
 crewai
 pydantic
 aiohttp
-openai
-litellm
