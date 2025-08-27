@@ -209,6 +209,10 @@ class Manager(Agent):
                 else:
                     if msg.sender != "user":
                         self.observe(msg)
+                        if not msg.metadata or "task_id" not in msg.metadata:
+                            self.logger.warning("invalid_message", extra={"sender": msg.sender})
+                            self.queue.task_done()
+                            break
                         remaining -= 1
                     self.queue.task_done()
         finally:
