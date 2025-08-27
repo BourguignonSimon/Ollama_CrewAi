@@ -56,19 +56,22 @@ def build_crew(
         cls = AGENT_TYPES.get(name)
         if cls is None:
             raise ValueError(f"Unknown agent type: {name}")
-        if isinstance(params, dict):
-            p: Dict[str, Any] = dict(params)
-            llm_cfg = p.pop("llm", None)
-            if isinstance(llm_cfg, dict):
-                llm = OllamaLLM(
-                    model=llm_cfg.get("model"),
-                    base_url=llm_cfg.get("base_url"),
-                    temperature=llm_cfg.get("temperature"),
-                )
-                p["llm"] = llm
-            instances[name] = cls(**p)
-        else:
-            instances[name] = cls()
+
+        # Support configs provided either as plain dictionaries or Pydantic models.
+        if not isinstance(params, dict):
+            params = params.model_dump() if hasattr(params, "model_dump") else {}
+
+        p: Dict[str, Any] = dict(params)
+        llm_cfg = p.pop("llm", None)
+        if isinstance(llm_cfg, dict):
+            llm = OllamaLLM(
+                model=llm_cfg.get("model"),
+                base_url=llm_cfg.get("base_url"),
+                temperature=llm_cfg.get("temperature"),
+            )
+            p["llm"] = llm
+
+        instances[name] = cls(**p)
 
     if config.policies.allowed_commands is not None:
         policies.ALLOWED_COMMANDS = set(config.policies.allowed_commands)
