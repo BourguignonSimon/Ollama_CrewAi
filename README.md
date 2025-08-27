@@ -9,11 +9,19 @@ Ollama_CrewAi illustre une architecture **Manager ↔ Agents** minimaliste. Le m
    ```bash
    git clone <repository-url>
    cd Ollama_CrewAi
-   pip install .
+   pip install -e .
+   # or
+   pipx install .
    ```
 
    Le projet ne dépend d'aucun fournisseur LLM externe ; aucune clé API
    OpenAI ou LiteLLM n'est nécessaire.
+
+   Vérifiez l'installation avec :
+
+   ```bash
+   ollama-crewai-agents -h
+   ```
 
 2. **Lancer le scénario fourni**
 
@@ -58,11 +66,19 @@ Follow these steps to set up the project and run the test suite:
 To install the CLI and its dependencies:
 
    ```bash
-   pip install .
+   pip install -e .
+   # or
+   pipx install .
    ```
 
    No external LLM providers are included, so no OpenAI or LiteLLM API
    key is required.
+
+   Quick test:
+
+   ```bash
+   ollama-crewai-agents -h
+   ```
 
    Alternatively, install the dependencies directly:
 
