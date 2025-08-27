@@ -27,3 +27,23 @@ These steps describe how to set up the project and install its dependencies.
    ```bash
    python src/main.py
    ```
+
+## Installation sur Windows 11
+
+1. Installez Git pour Windows depuis [git-scm.com](https://git-scm.com/download/win) et suivez l'assistant pour l'ajouter au `PATH`.
+2. Installez Python 3.11 ou version supérieure depuis [python.org](https://www.python.org/downloads/windows/) en cochant l'option **Add python.exe to PATH**.
+3. Ouvrez PowerShell puis créez et activez un environnement virtuel :
+   ```powershell
+   python -m venv .venv
+   .\.venv\Scripts\Activate
+   ```
+4. Installez les dépendances du projet :
+   ```powershell
+   pip install -r requirements.txt
+   pip install -e .
+   ```
+5. Vérifiez l'installation :
+   ```powershell
+   ollama-crewai-agents -h
+   ```
+6. *(Optionnel)* Si vous souhaitez exécuter les exemples nécessitant des modèles locaux, installez un serveur Ollama sur votre machine en suivant les instructions officielles, puis assurez-vous qu'il est en cours d'exécution.
