@@ -68,13 +68,28 @@ class Agent(ABC):
             message = await self.queue.get()
             task_id = message.metadata.get("task_id") if message.metadata else ""
             self.logger.info("received", extra={"task": task_id})
-            response = self.act(message)
-            if inspect.isawaitable(response):
-                response = await response
 
-            observation = self.observe(response)
-            if inspect.isawaitable(observation):
-                await observation
+            try:
+                response = self.act(message)
+                if inspect.isawaitable(response):
+                    response = await response
+
+                observation = self.observe(response)
+                if inspect.isawaitable(observation):
+                    await observation
+            except Exception:
+                self.logger.exception("error", extra={"task": task_id})
+                failure_metadata: dict[str, object] | None = None
+                if task_id:
+                    failure_metadata = {"task_id": task_id}
+                failure = Message(
+                    sender=self.logger.extra.get("agent", type(self).__name__.lower()),
+                    content="error",
+                    metadata=failure_metadata,
+                )
+                await self.bus.send("manager", failure)
+                self.queue.task_done()
+                continue
 
             metadata: dict[str, object] = {}
             if message.metadata:
