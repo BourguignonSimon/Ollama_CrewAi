@@ -15,6 +15,7 @@ dependencies = [
     "openai",
     "litellm",
     "ollama",
+    "langchain-ollama",
 ]
 
 [project.scripts]

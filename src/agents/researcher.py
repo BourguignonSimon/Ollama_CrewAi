@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 import aiohttp
+from langchain_ollama import OllamaLLM
 
 from .base import Agent
 
@@ -11,14 +12,28 @@ from .base import Agent
 class ResearcherAgent(Agent):
     """Agent that performs simple HTTP GET requests."""
 
-    role: str = "Researcher"
-    goal: str = "Gather information from the internet"
-    backstory: str = "An AI that searches the web for relevant data."
-    verbose: bool = False
-    allow_delegation: bool = False
-    llm: str = "mistral"
-
     last_response: Optional[str] = None
+
+    def __init__(
+        self,
+        *,
+        role: str = "Researcher",
+        goal: str = "Gather information from the internet",
+        backstory: str = "An AI that searches the web for relevant data.",
+        model: str = "mistral",
+        llm: OllamaLLM | None = None,
+        verbose: bool = False,
+        allow_delegation: bool = False,
+    ) -> None:
+        super().__init__(
+            role=role,
+            goal=goal,
+            backstory=backstory,
+            llm=llm or OllamaLLM(model=model),
+            verbose=verbose,
+            allow_delegation=allow_delegation,
+        )
+        self.last_response = None
 
     def plan(self) -> str:
         return "ready"
