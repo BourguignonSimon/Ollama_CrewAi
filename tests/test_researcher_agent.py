@@ -1,6 +1,5 @@
 import pathlib
 import sys
-import requests
 import inspect
 import pytest
 
@@ -12,10 +11,8 @@ from agents.researcher import ResearcherAgent
 
 
 @pytest.mark.asyncio
-async def test_researcher_act_async(monkeypatch, requests_mock):
-    """ResearcherAgent.act should fetch data using a mocked HTTP response."""
-
-    requests_mock.get("http://example.com", text="dummy response")
+async def test_researcher_act_async(monkeypatch):
+    """ResearcherAgent.act should fetch data using a mocked aiohttp response."""
 
     class DummyResponse:
         def __init__(self, text: str) -> None:
@@ -41,8 +38,7 @@ async def test_researcher_act_async(monkeypatch, requests_mock):
             return False
 
         def get(self, url):
-            response = requests.get(url)
-            return DummyResponse(response.text)
+            return DummyResponse("dummy response")
 
     monkeypatch.setattr(
         "agents.researcher.aiohttp.ClientSession", lambda *args, **kwargs: DummySession()
