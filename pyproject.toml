@@ -12,6 +12,9 @@ dependencies = [
     "crewai",
     "pydantic",
     "aiohttp",
+    "openai",
+    "litellm",
+    "ollama",
 ]
 
 [project.scripts]
