@@ -17,7 +17,7 @@ from .message import Message
 @dataclass
 class WriterAgent(Agent):
     """Agent that writes documentation files to the filesystem."""
-    model: str = "gpt-4"
+    model: str = "llama3"
     capabilities: list[str] = field(default_factory=lambda: ["documentation"])
     tools: list[str] = field(default_factory=lambda: ["filesystem"])
     documents: Dict[Path, str] = field(default_factory=dict)

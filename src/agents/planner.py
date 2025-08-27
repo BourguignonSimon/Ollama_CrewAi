@@ -16,7 +16,7 @@ from .message import Message
 @dataclass
 class PlannerAgent(Agent):
     """Agent that decomposes objectives into smaller tasks."""
-    model: str = "gpt-4"
+    model: str = "llama3"
     capabilities: list[str] = field(default_factory=lambda: ["planning", "decomposition"])
     tools: list[str] = field(default_factory=list)
     tasks: List[str] = field(default_factory=list)

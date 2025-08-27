@@ -1,17 +1,17 @@
 objective: "Plan. Implement. Test."
 agents:
   planner:
-    model: gpt-4
+    model: llama3
     tools: []
   developer:
-    model: gpt-4
+    model: codellama
     tools: [filesystem]
   writer:
-    model: gpt-4
+    model: llama3
     tools: [filesystem]
   tester:
-    model: gpt-4
+    model: llama3
     tools: [pytest]
   researcher:
-    model: gpt-4
+    model: mistral
     tools: [aiohttp]

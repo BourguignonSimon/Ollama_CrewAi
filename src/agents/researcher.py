@@ -20,7 +20,7 @@ class ResearcherAgent(Agent):
     The :meth:`act` method performs an asynchronous HTTP GET request and
     returns the first 200 characters of the response body.
     """
-    model: str = "gpt-4"
+    model: str = "mistral"
     capabilities: list[str] = field(default_factory=lambda: ["research", "web-fetch"])
     tools: list[str] = field(default_factory=lambda: ["aiohttp"])
     last_response: str | None = None

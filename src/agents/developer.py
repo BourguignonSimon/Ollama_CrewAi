@@ -16,7 +16,7 @@ from .message import Message
 @dataclass
 class DeveloperAgent(Agent):
     """Agent that writes provided code snippets to the filesystem."""
-    model: str = "gpt-4"
+    model: str = "codellama"
     capabilities: list[str] = field(
         default_factory=lambda: ["coding", "file-writing", "file-reading"]
     )
