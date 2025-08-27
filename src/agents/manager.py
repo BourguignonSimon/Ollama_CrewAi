@@ -38,6 +38,11 @@ class Manager(Agent):
         self._tasks: List[Task] = []
         self._decisions: List[str] = []
         self._history: List[Message] = []
+        if self.storage is not None:
+            tasks, _, decisions, messages = self.storage.load()
+            self._tasks = tasks
+            self._decisions = decisions
+            self._history = messages
         # Ensure agents share the bus
         for name, agent in list(self.agents.items()):
             self.register_agent(name, agent)
@@ -93,6 +98,8 @@ class Manager(Agent):
         tasks: List[Task] = message.metadata.get("tasks", []) if message.metadata else []
         agent_names = list(self.agents.keys())
         for idx, task in enumerate(tasks):
+            if task.status is not TaskStatus.PENDING:
+                continue
             if not check_policy(task.description):
                 task.status = TaskStatus.FAILED
                 # Inform supervisor about the refusal
@@ -161,10 +168,16 @@ class Manager(Agent):
         """
 
         self._objective = objective
-        plan_msg = self.plan()
-        approved = await self.request_approval(plan_msg)
-        if not approved:
-            return self._tasks
+        if not self._tasks:
+            plan_msg = self.plan()
+            approved = await self.request_approval(plan_msg)
+            if not approved:
+                return self._tasks
+        else:
+            plan_msg = Message(sender="manager", content="plan", metadata={"tasks": list(self._tasks)})
+            self.bus.send_to_supervisor(plan_msg)
+            self._history.append(plan_msg)
+            self._persist()
 
         async def _safe_handle(agent: Agent) -> None:
             try:
@@ -186,7 +199,7 @@ class Manager(Agent):
 
         self.act(plan_msg)
 
-        remaining = len(self._tasks)
+        remaining = sum(1 for t in self._tasks if t.status not in {TaskStatus.DONE, TaskStatus.FAILED})
 
         try:
             while remaining:
@@ -209,7 +222,9 @@ class Manager(Agent):
                 else:
                     if msg.sender != "user":
                         self.observe(msg)
-                        remaining -= 1
+                        remaining = sum(
+                            1 for t in self._tasks if t.status not in {TaskStatus.DONE, TaskStatus.FAILED}
+                        )
                     self.queue.task_done()
         finally:
             for w in workers:
